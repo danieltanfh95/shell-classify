@@ -1,0 +1,13 @@
+{:paths ["src" "resources"]
+ :min-bb-version "1.3.0"
+
+ :deps
+ {io.github.danieltanfh95/shell-shape
+  {:local/root "../shell-shape"}}
+
+ :tasks
+ {test:unit        {:doc "Run :unit suite"        :task (clojure "-M:test --focus :unit")}
+  test:all         {:doc "Run all kaocha suites"  :task (clojure "-M:test")}
+
+  lint {:doc "Run clj-kondo over src + test"
+        :task (clojure "-M:lint")}}}

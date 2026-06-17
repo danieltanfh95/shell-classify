@@ -1,0 +1,8 @@
+.nrepl-port
+.cpcache/
+.cljs_node_repl/
+.lsp/
+.clj-kondo/
+target/
+*.jar
+.DS_Store
