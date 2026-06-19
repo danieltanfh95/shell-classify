@@ -19,8 +19,14 @@ into a normalized-call and run the same registry.
 (cls/classify-tree
  {:registry eff/default-registry}
  (ss/parse "find . | xargs rm /tmp/x"))
-;; => ({:class :fs-read   :scope "."      :provenance {:rule :find ...}}
-;;     {:class :fs-delete :scope "/tmp/x" :provenance {:rule :rm   ...}})
+;; => ({:class :fs-read   :scope "."                    :provenance {:rule :find  ...}}
+;;     {:class :fs-delete :scope "/tmp/x"               :provenance {:rule :rm    ...}}
+;;     {:class :opaque    :scope "xargs-stdin-fed-argv" :provenance {:rule :xargs ...}})
+;;
+;; The :opaque marker (v0.2.1) records that xargs's actual operands
+;; come from stdin, not the static argv — policies that grant
+;; :fs-delete:** alone won't clear this; the operator must also
+;; grant opaque:xargs-stdin-fed-argv (or defer).
 ```
 
 The effect-class taxonomy (`:fs-read`, `:fs-write`, `:fs-delete`,

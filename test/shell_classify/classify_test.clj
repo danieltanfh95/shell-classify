@@ -146,6 +146,16 @@
   (is (has-pair? "xargs rm" :fs-delete "?"))
   (is (has-pair? "xargs rm" :opaque "xargs-stdin-fed-argv")))
 
+(deftest readme-find-pipe-xargs-rm
+  ;; Pins the README's headline example output (`find . | xargs rm
+  ;; /tmp/x`) so the docs and the classifier cannot drift. Keep the
+  ;; expected set in sync with the README code block.
+  (let [p (pairs-of "find . | xargs rm /tmp/x")]
+    (is (contains? p [:fs-read "."])           "find . → :fs-read .")
+    (is (contains? p [:fs-delete "/tmp/x"])    "rm /tmp/x via xargs → :fs-delete /tmp/x")
+    (is (contains? p [:opaque "xargs-stdin-fed-argv"])
+        "xargs stdin-fed argv → :opaque marker (v0.2.1)")))
+
 (deftest nice-delegates
   (is (has-class? "nice ls /tmp" :fs-read)))
 
