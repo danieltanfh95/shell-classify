@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classifiers.node
+(ns shell-classify.classifiers.node
   "Per-language stdlib effect classifier for the Node.js interpreter
   dialect — Plan §7 Move 5 / P5.2.
 

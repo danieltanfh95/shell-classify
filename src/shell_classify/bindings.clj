@@ -1,4 +1,4 @@
-(ns shell-shape-classify.bindings
+(ns shell-classify.bindings
   "P7a — same-string variable resolution.
 
   When the LLM emits `DANGER=\"rm /tmp/x\"; eval $DANGER`, the assignment

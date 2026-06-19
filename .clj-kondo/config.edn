@@ -1,4 +1,4 @@
-;; clj-kondo configuration for shell-shape-classify. Matches the
+;; clj-kondo configuration for shell-classify. Matches the
 ;; sibling continuity-witness + shell-shape configs so the three
 ;; repos lint consistently.
 {:linters

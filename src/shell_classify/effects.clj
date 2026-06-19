@@ -1,6 +1,6 @@
-(ns shell-shape-classify.effects
+(ns shell-classify.effects
   "Effect-class taxonomy + default program-classifier registry —
-   shell-shape-classify's core namespace.
+   shell-classify's core namespace.
 
    Given a `shell-shape.core/parse` tree, this layer walks each
    :command node and emits a bounded effect-set per program. The
@@ -57,9 +57,10 @@
   Programs not in the registry produce {:class :opaque} so the
   witness's `effect_all_authorized` positive-gate denies."
   (:require [clojure.string :as str]
-            [shell-shape-classify.argv-shape :as as]
-            [shell-shape-classify.bindings :as bind]
-            [shell-shape-classify.getopt-specs :as gs]))
+            [shell-classify.argv-shape :as as]
+            [shell-classify.bindings :as bind]
+            [shell-classify.call :as call]
+            [shell-classify.getopt-specs :as gs]))
 
 ;; ---- Bounded class set --------------------------------------------------
 
@@ -86,141 +87,6 @@
   [c]
   (let [kw (if (keyword? c) c (keyword c))]
     (contains? effect-classes kw)))
-
-;; ---- Token helpers ------------------------------------------------------
-
-(defn- literal-token?
-  [tok]
-  (and (= :token (:kind tok))
-       (every? #(= :literal (:kind %)) (:parts tok))))
-
-(defn- token-literal-value
-  [tok]
-  (when (literal-token? tok)
-    (apply str (mapv :value (:parts tok)))))
-
-(def ^:const process-sub-fd-scope
-  "Synthetic scope for process-substitution arg-elements. The outer
-   command reads from (or writes to) `/dev/fd/N` at runtime; we model
-   that with a single glob scope so policy authors can grant
-   `/dev/fd/**` once and process-sub becomes seamless. The inner
-   command's effects flow through classify-arg-token's recursive
-   descent into the :process-sub :body."
-  "/dev/fd/*")
-
-(defn- arg-literal-scope
-  "Scope of a single arg-element:
-     - :token literal           → its literal string value
-     - :process-sub             → /dev/fd/* (v0.7.0)
-     - :token with vars/substs  → nil sentinel for non-literal"
-  [arg]
-  (case (:kind arg)
-    :token       (token-literal-value arg)
-    :process-sub process-sub-fd-scope
-    nil))
-
-(defn arg-literals
-  "Sequence of arg-element scopes from a command's args. Non-literal
-   :token args (containing :var / :subst parts) yield nil so callers
-   can detect them; :process-sub args yield the /dev/fd/* glob.
-
-   Public for shims that extend the registry (e.g. continuity-witness's
-   self-classifier) and need to inspect literal positionals/flags
-   without re-deriving the literal-token logic."
-  [cmd]
-  (mapv arg-literal-scope (:args cmd)))
-
-(defn option?
-  "Crude predicate: arg looks like a CLI option (starts with `-`).
-   Special cases: `-` alone is stdin (positional, not an option);
-   `--` is the POSIX option terminator (handled by the caller, not
-   here).
-
-   Public for shims extending the registry — see `arg-literals`."
-  [s]
-  (and (string? s)
-       (str/starts-with? s "-")
-       (not= s "-")
-       (not= s "--")))
-
-(defn- non-option-positional-literals
-  "Literal-only positional args after stripping options. Returns
-     {:paths           [<path-str> ...]   ; literal positional file args
-      :stdin-consumed? <bool>}            ; true iff a literal `-` was
-                                          ; present as a positional
-   or nil when any arg is non-literal (caller emits :opaque).
-
-   `opts` (optional):
-     :value-flags  set of flags that consume their NEXT arg as a value
-                   (e.g. head `-n N`, sort `-k FIELD`). The value is
-                   dropped from positionals. Honored only PRE-`--`.
-     :path-value-flags  set of flags whose VALUE is a path. The value
-                        is emitted into the :paths vector (so the
-                        caller's classifier picks it up as fs-read).
-                        Honored only PRE-`--`.
-
-   Two POSIX conventions honored beyond the v0.5.0 substrate:
-     - `--` terminates option parsing — every arg after `--` is
-       positional even if it starts with `-`.
-     - bare `-` as a positional signals stdin consumption rather than
-       a file with that name. Callers split it into a separate
-       :stdin-consume effect."
-  ([cmd] (non-option-positional-literals cmd {}))
-  ([cmd {:keys [value-flags path-value-flags]
-         :or {value-flags #{} path-value-flags #{}}}]
-   (let [lits (arg-literals cmd)]
-     (when (every? some? lits)
-       (let [[pre post]      (split-with #(not= "--" %) lits)
-             ;; Walk pre-`--` args, consuming flag values per the spec.
-             walk            (fn walk [xs positionals path-vals]
-                               (cond
-                                 (empty? xs)
-                                 [positionals path-vals]
-
-                                 (contains? path-value-flags (first xs))
-                                 (let [val (second xs)]
-                                   (recur (drop 2 xs) positionals
-                                          (if val (conj path-vals val) path-vals)))
-
-                                 (contains? value-flags (first xs))
-                                 (recur (drop 2 xs) positionals path-vals)
-
-                                 (option? (first xs))
-                                 (recur (rest xs) positionals path-vals)
-
-                                 :else
-                                 (recur (rest xs)
-                                        (conj positionals (first xs))
-                                        path-vals)))
-             [pre-positional path-vals] (walk pre [] [])
-             post-positional (rest post) ; drop the "--" itself
-             positional      (vec (concat pre-positional post-positional))
-             stdin-consumed? (boolean (some #{"-"} positional))
-             paths           (vec (concat path-vals
-                                          (filterv (complement #{"-"}) positional)))]
-         {:paths           paths
-          :stdin-consumed? stdin-consumed?})))))
-
-;; ---- Path / URL parsing ------------------------------------------------
-
-(defn- host-from-url
-  "Extract host from a URL-shaped arg. Returns nil if not a URL."
-  [s]
-  (when (string? s)
-    (when-let [m (re-find #"^[a-zA-Z]+://([^/]+)" s)]
-      (nth m 1))))
-
-(defn- net-targets-from-args
-  "For network commands, find host targets in args. Conservative:
-   parses URL arg first; falls back to first non-option positional."
-  [cmd]
-  (let [lits (arg-literals cmd)]
-    (when (every? some? lits)
-      (let [from-urls (keep host-from-url lits)
-            others    (->> lits (drop-while option?) (remove option?))]
-        (if (seq from-urls)
-          (vec from-urls)
-          (vec (take 1 others)))))))
 
 ;; ---- Effect-instance constructors --------------------------------------
 
@@ -262,12 +128,12 @@
    path). Both default to `#{}`.
 
    Used by `default-registry` for ls/stat/file/tree/diff/… and exposed
-   for the operator-facing overlay (shell-shape-classify.overlay)."
+   for the operator-facing overlay (shell-classify.overlay)."
   ([rule] (classify-fs-read rule {}))
   ([rule spec]
    (fn [cmd ctx]
      (let [{:keys [paths stdin-consumed?]}
-           (non-option-positional-literals cmd spec)]
+           (call/non-option-positional-literals cmd spec)]
        (cond
          (nil? paths)
          [(opaque :variable-arg cmd)]
@@ -307,7 +173,7 @@
   ([rule spec]
    (fn [cmd ctx]
      (let [{:keys [paths stdin-consumed?]}
-           (non-option-positional-literals cmd spec)]
+           (call/non-option-positional-literals cmd spec)]
        (cond
          (nil? paths)
          [(opaque :variable-arg cmd)]
@@ -368,7 +234,7 @@
          file-class        :fs-read
          emit-stdout?      false}}]
   (fn [cmd _ctx]
-    (let [lits (arg-literals cmd)]
+    (let [lits (call/arg-literals cmd)]
       (if-not (every? some? lits)
         [(opaque :variable-arg cmd)]
         (loop [xs              lits
@@ -430,7 +296,7 @@
             (recur (drop 2 xs) script-resolved? in-place? script-files
                    positionals false)
 
-            (option? (first xs))
+            (call/option? (first xs))
             ;; Single-letter / boolean flag with no value.
             (recur (rest xs) script-resolved? in-place? script-files
                    positionals false)
@@ -441,7 +307,7 @@
 
 (defn classify-fs-delete [rule]
   (fn [cmd ctx]
-    (let [{:keys [paths stdin-consumed?]} (non-option-positional-literals cmd)]
+    (let [{:keys [paths stdin-consumed?]} (call/non-option-positional-literals cmd)]
       (cond
         (nil? paths)   [(opaque :variable-arg cmd)]
         (and (empty? paths) (not stdin-consumed?)
@@ -454,7 +320,7 @@
 
 (defn classify-fs-write [rule]
   (fn [cmd ctx]
-    (let [{:keys [paths stdin-consumed?]} (non-option-positional-literals cmd)]
+    (let [{:keys [paths stdin-consumed?]} (call/non-option-positional-literals cmd)]
       (cond
         (nil? paths)   [(opaque :variable-arg cmd)]
         (and (empty? paths) (not stdin-consumed?)
@@ -468,7 +334,7 @@
 (defn classify-fs-read-write [rule]
   ;; mv/cp: read src, write dst
   (fn [cmd _ctx]
-    (let [{:keys [paths stdin-consumed?]} (non-option-positional-literals cmd)]
+    (let [{:keys [paths stdin-consumed?]} (call/non-option-positional-literals cmd)]
       (cond
         (nil? paths)         [(opaque :variable-arg cmd)]
         (< (count paths) 2)  [(opaque :no-target cmd)]
@@ -482,7 +348,7 @@
 
 (defn classify-net-out [rule]
   (fn [cmd _ctx]
-    (let [targets (net-targets-from-args cmd)]
+    (let [targets (call/net-targets-from-args cmd)]
       (cond
         (nil? targets)   [(opaque :variable-arg cmd)]
         (empty? targets) [(opaque :no-target cmd)]
@@ -526,13 +392,20 @@
    P7a: when ctx carries a :bindings table and an :unresolved entry
    is structurally resolvable via that table, suppress the :opaque
    here — classify-invocation's `try-resolve-unresolved` produces the
-   resolved-form effects from the same :unresolved entry."
+   resolved-form effects from the same :unresolved entry.
+
+   `cmd` is a normalized-call (v0.2.0); bindings.clj's resolver still
+   reads shell-shape :command shape via `(:raw cmd)`. Adapters that
+   don't populate `:raw` (or emit no :unresolved invokes) get no-op
+   bindings resolution — wrapper-classifier still emits the static
+   :opaque per :unresolved entry."
   [cmd ctx]
   (let [bindings (or (:bindings ctx) {})
+        raw      (or (:raw cmd) cmd)
         unresolved-invokes (filter #(= :unresolved (:kind %)) (:invokes cmd))
         opaque-emitting
         (if (seq bindings)
-          (remove (fn [u] (bind/invocation-resolvable? bindings cmd u))
+          (remove (fn [u] (bind/invocation-resolvable? bindings raw u))
                   unresolved-invokes)
           unresolved-invokes)]
     (mapv (fn [u] (mk :opaque (str (name (:reason u))) :wrapper-unresolved cmd))
@@ -572,15 +445,15 @@
    :opaque for non-literal tokens in leading position (we can't tell
    what gets mutated), :env-read if there are no assignments at all."
   [cmd _ctx]
-  (let [arg-toks (:args cmd)
+  (let [arg-toks (:argv cmd)
         ;; Leading slice: stop at the first arg that's clearly the
         ;; wrapped program (a literal that's NOT an assignment).
         leading  (take-while (fn [t]
-                               (or (not (literal-token? t))
-                                   (env-assignment-var (token-literal-value t))))
+                               (or (not (call/literal-token? t))
+                                   (env-assignment-var (call/token-literal-value t))))
                              arg-toks)
-        any-non-literal? (some (complement literal-token?) leading)
-        assigned-vars    (keep (comp env-assignment-var token-literal-value)
+        any-non-literal? (some (complement call/literal-token?) leading)
+        assigned-vars    (keep (comp env-assignment-var call/token-literal-value)
                                leading)]
     (cond
       any-non-literal?
@@ -607,15 +480,15 @@
    which variable is being mutated)."
   [rule]
   (fn [cmd _ctx]
-    (let [arg-toks       (:args cmd)
+    (let [arg-toks       (:argv cmd)
           ;; Drop leading -flags (export -p, declare -x, declare -r ...)
           positional     (drop-while (fn [t]
-                                       (when-let [lit (token-literal-value t)]
+                                       (when-let [lit (call/token-literal-value t)]
                                          (str/starts-with? lit "-")))
                                      arg-toks)
-          any-non-lit?   (some (complement literal-token?) positional)
+          any-non-lit?   (some (complement call/literal-token?) positional)
           assigned-vars  (keep (fn [t]
-                                 (when-let [lit (token-literal-value t)]
+                                 (when-let [lit (call/token-literal-value t)]
                                    ;; `VAR=val` — take VAR. Plain `VAR` —
                                    ;; whole literal is the name.
                                    (or (env-assignment-var lit)
@@ -661,14 +534,14 @@
     (cond
       (empty? as) as
       (contains? ssh-opts-with-value (first as)) (drop 2 as)
-      (option? (first as)) (recur (rest as))
+      (call/option? (first as)) (recur (rest as))
       :else as)))
 
 (defn- ssh-host-from-args
   "First non-option positional arg, stripped of `user@` prefix. nil if
    any arg in the path is non-literal."
   [cmd]
-  (let [lits (arg-literals cmd)]
+  (let [lits (call/arg-literals cmd)]
     (when (every? some? lits)
       (let [positional (vec (ssh-skip-opts lits))
             host (first positional)]
@@ -681,8 +554,8 @@
    literal token. nil if no remote-cmd args; :dynamic if any are
    non-literal."
   [cmd]
-  (let [lits (arg-literals cmd)
-        toks (:args cmd)]
+  (let [lits (call/arg-literals cmd)
+        toks (:argv cmd)]
     (when (every? some? lits)
       (let [;; Walk the args, dropping leading options + the host
             ;; position, returning the remaining literal-tokens.
@@ -692,7 +565,7 @@
                 (empty? as) []
                 (contains? ssh-opts-with-value (first as))
                 (recur (drop 2 as) (drop 2 ts))
-                (option? (first as))
+                (call/option? (first as))
                 (recur (rest as) (rest ts))
                 :else
                 ;; First positional = host; drop and return the rest.
@@ -704,8 +577,8 @@
           ;; process-sub args would inject /dev/fd/* into the body,
           ;; var/subst tokens introduce dynamic content. Either case
           ;; means we can't recurse-classify the body literally.
-          (every? literal-token? after-host)
-          (str/join " " (mapv token-literal-value after-host))
+          (every? call/literal-token? after-host)
+          (str/join " " (mapv call/token-literal-value after-host))
 
           :else :dynamic)))))
 
@@ -736,8 +609,8 @@
    first positional is the body (literal-string) or :dynamic if
    non-literal."
   [cmd]
-  (let [lits (arg-literals cmd)
-        first-arg (first (:args cmd))]
+  (let [lits (call/arg-literals cmd)
+        first-arg (first (:argv cmd))]
     (cond
       (nil? first-arg) nil
 
@@ -746,7 +619,7 @@
            (every? signal-arg? lits))
       nil
 
-      (literal-token? first-arg) (token-literal-value first-arg)
+      (call/literal-token? first-arg) (call/token-literal-value first-arg)
       :else :dynamic)))
 
 (def ^:private mail-recipient-regex
@@ -761,7 +634,7 @@
    vector of recipient strings (possibly empty); nil if any literal
    `--` was followed by non-literal positional args we can't inspect."
   [cmd]
-  (let [lits (arg-literals cmd)]
+  (let [lits (call/arg-literals cmd)]
     (when (every? some? lits)
       (filterv #(re-matches mail-recipient-regex %) lits))))
 
@@ -863,7 +736,7 @@
    layer recognizes the bytes-of-file-as-shell-source flow."
   [rule]
   (fn [cmd _ctx]
-    (let [{:keys [paths]} (non-option-positional-literals cmd)]
+    (let [{:keys [paths]} (call/non-option-positional-literals cmd)]
       (cond
         (nil? paths)
         [(opaque :variable-arg cmd)
@@ -918,7 +791,7 @@
      - []       if no positional paths (find defaults to cwd)
      - [<path>] otherwise"
   [cmd]
-  (let [lits (arg-literals cmd)]
+  (let [lits (call/arg-literals cmd)]
     (when (every? some? lits)
       (vec (take-while (complement find-expression-starts?) lits)))))
 
@@ -929,7 +802,7 @@
    path-scanning step above would have already flagged the command as
    :opaque if any arg is non-literal."
   [cmd]
-  (let [lits (arg-literals cmd)]
+  (let [lits (call/arg-literals cmd)]
     (boolean
      (when (every? some? lits)
        (some #{"-delete"} lits)))))
@@ -985,8 +858,8 @@
    non-literal tokens are skipped — the shape match must operate on
    concrete tokens. Returns a vector of strings."
   [cmd]
-  (->> (:args cmd)
-       (keep token-literal-value)
+  (->> (:argv cmd)
+       (keep call/token-literal-value)
        vec))
 
 (defn- argv-shape-classifier
@@ -1439,10 +1312,10 @@
                :stdin :data :stdout :data}
     "nc"      {:doc "nc — netcat; net-out or net-in depending on -l"
                :classify (fn [cmd _ctx]
-                           (let [lits (arg-literals cmd)]
+                           (let [lits (call/arg-literals cmd)]
                              (if (some #{"-l" "--listen"} lits)
                                [(mk :net-in "?" :nc cmd)]
-                               (let [targets (net-targets-from-args cmd)]
+                               (let [targets (call/net-targets-from-args cmd)]
                                  (cond
                                    (nil? targets)   [(opaque :variable-arg cmd)]
                                    (empty? targets) [(opaque :no-target cmd)]
@@ -1450,7 +1323,7 @@
                :stdin :data :stdout :data}
     "netcat"  {:doc "netcat — alias for nc"
                :classify (fn [cmd _ctx]
-                           (let [targets (net-targets-from-args cmd)]
+                           (let [targets (call/net-targets-from-args cmd)]
                              (cond
                                (nil? targets)   [(opaque :variable-arg cmd)]
                                (empty? targets) [(opaque :no-target cmd)]
@@ -1613,7 +1486,7 @@
    {"tee"     {:doc "tee — stdin → stdout AND fs-write per positional path
                      (truncated by default, appended with -a)"
                :classify (fn [cmd _ctx]
-                           (let [r (non-option-positional-literals cmd)]
+                           (let [r (call/non-option-positional-literals cmd)]
                              (cond
                                (nil? r)            [(opaque :variable-arg cmd)]
                                (empty? (:paths r)) [(stdin-consume-effect :tee cmd)]
@@ -1658,7 +1531,7 @@
   "Dynamic-var seam used by two consumers:
 
    - **Operator overlay (v0.28+)**: at daemon startup,
-     `shell-shape-classify.overlay/install!` does
+     `shell-classify.overlay/install!` does
      `(alter-var-root #'*registry-override* (constantly merged))`.
      This sets the ROOT binding so every thread sees the overlay-merged
      registry automatically.
@@ -1685,14 +1558,19 @@
   ([program] (lookup (active-registry) program))
   ([registry program] (get registry program)))
 
-(defn classify-command
-  "Apply a program-classifier (from registry) to a single :command
-   node. Returns a vector of effect-instances. Programs not in the
-   registry get a single :opaque effect with reason :unclassified-program.
+(defn classify-call
+  "Apply a program-classifier (from registry) to a normalized-call
+   (see `shell-classify.call`). Returns a vector of effect-
+   instances. Programs not in the registry get a single :opaque effect
+   with reason :unclassified-program.
+
+   This is the parser-neutral entry point — adapters that translate
+   their parse tree into a normalized-call (`call/from-shell-shape-
+   command` or an equivalent) call this directly.
 
    `ctx` is reserved for future composition state."
-  [registry cmd ctx]
-  (let [prog (:program cmd)]
+  [registry norm-call ctx]
+  (let [prog (call/program-string norm-call)]
     (cond
       (nil? prog) []
       (not (string? prog))
@@ -1700,6 +1578,16 @@
         :provenance {:rule :variable-program :program (or prog "?")}}]
       :else
       (if-let [spec (lookup registry prog)]
-        ((:classify spec) cmd ctx)
+        ((:classify spec) norm-call ctx)
         [{:class :opaque :scope (str "unclassified-program:" prog)
           :provenance {:rule :unclassified-program :program prog}}]))))
+
+(defn classify-command
+  "Apply a program-classifier to a shell-shape `:command` node. Thin
+   wrapper over `classify-call` that translates the shell-shape shape
+   into a normalized-call via `call/from-shell-shape-command`. Kept
+   for backward compatibility and for ssc's walker (classify.clj) which
+   walks shell-shape trees natively. New consumers should use
+   `classify-call` directly."
+  [registry cmd ctx]
+  (classify-call registry (call/from-shell-shape-command cmd) ctx))

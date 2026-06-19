@@ -1,4 +1,4 @@
-(ns shell-shape-classify.getopt-specs
+(ns shell-classify.getopt-specs
   "v0.10.0 (P2) — per-program getopt specs that drive
   `argv-shape/normalize-argv`. Specs are pure data; the normalizer is
   the only consumer.

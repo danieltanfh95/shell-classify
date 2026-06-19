@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classifiers.ruby
+(ns shell-classify.classifiers.ruby
   "Per-language stdlib effect classifier for the Ruby interpreter
   dialect — Plan §7 Move 5 / P5.3.
 

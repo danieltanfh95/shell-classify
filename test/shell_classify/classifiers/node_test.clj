@@ -1,7 +1,7 @@
-(ns shell-shape-classify.classifiers.node-test
+(ns shell-classify.classifiers.node-test
   "Node.js stdlib effect classifier (P5.2 / v0.14.0)."
   (:require [clojure.test :refer [deftest is testing]]
-            [shell-shape-classify.classify :as cls]
+            [shell-classify.classify :as cls]
             [shell-shape.dialect.node :as node]))
 
 (defn- effects-of [js-src]

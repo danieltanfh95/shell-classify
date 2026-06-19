@@ -3,7 +3,7 @@
  :deps
  {org.clojure/clojure {:mvn/version "1.12.0"}
 
-  ;; The shell-program parser. shell-shape-classify is the *interpretation*
+  ;; The shell-program parser. shell-classify is the *interpretation*
   ;; layer above shell-shape's tree: it walks parsed commands and emits
   ;; a bounded effect-set per program.
   ;; Source: github.com/danieltanfh95/shell-shape

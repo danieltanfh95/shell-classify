@@ -1,8 +1,8 @@
-(ns shell-shape-classify.argv-shape-test
+(ns shell-classify.argv-shape-test
   "Predicate-set DSL: position-invariance, predicate composition, and
    the fail-closed posture on unknown predicate types."
   (:require [clojure.test :refer [deftest is testing]]
-            [shell-shape-classify.argv-shape :as as]))
+            [shell-classify.argv-shape :as as]))
 
 ;; ---- Position-invariance (Section 2 of the working note) ---------------
 

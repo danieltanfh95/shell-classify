@@ -1,4 +1,4 @@
-(ns shell-shape-classify.env-resolve
+(ns shell-classify.env-resolve
   "P7c — env-read resolution (allowlist + deny-pattern + hash audit).
 
   When a `:var` part isn't resolvable from the same-string binding

@@ -4,6 +4,140 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-06-19
+
+**Decomplection + rename. Two coordinated breaking changes shipping
+together:**
+
+1. **Per-program classifier registry decomplected from any specific
+   parse-tree shape.** Closes the structural complecting where the
+   program-classifier API took a `shell-shape` `:command` node
+   directly, forcing any consumer to either use shell-shape as their
+   parser OR fork the lib to retarget the registry against their own
+   parse-tree shape.
+2. **Renamed `shell-shape-classify` → `shell-classify`.** The
+   `shell-shape-` prefix described the lib's parser dep, but post-
+   decomplection the registry is parser-neutral; the prefix was
+   actively misleading about what the lib couples to. GitHub repo
+   renamed to [`danieltanfh95/shell-classify`](https://github.com/danieltanfh95/shell-classify);
+   the old URL auto-forwards. The tools.deps coordinate is now
+   `io.github.danieltanfh95/shell-classify`. All Clojure namespaces
+   move from `shell-shape-classify.*` to `shell-classify.*`. v0.1.x
+   history below remains under the original name — it's where the lib
+   shipped from.
+
+v0.2.0 introduces `shell-classify.call` — a small, parser-neutral
+*normalized-call* shape — and routes the registry through it. The
+shape is documented in detail in the `call` ns docstring; the short
+form is `{:program <str> :argv [<arg>] :assigns [...] :redirs [...]
+:invokes [...] :program-sources [...] :raw <opaque>}`, with the per-
+arg `:kind :token / :process-sub` and per-part `:kind :literal /
+:var / :subst / :backtick` shape unchanged from shell-shape (so per-
+language and per-token semantics carry over without translation).
+
+Architecturally:
+
+- **ssc's tree walker (`classify.clj`) stays shell-shape-coupled.**
+  It still walks `:script` / `:pipeline` / `:command` / `:group` /
+  `:program-sources` natively — that's how ssc earns its keep
+  inside a shell-shape pipeline.
+- **The per-program classifier registry is parser-neutral.**
+  `classify-fs-read`, `classify-net-out`, `classify-script-then-
+  files`, `ssh-classifier`, `argv-shape-classifier` (used for git/
+  tar getopt-shape discrimination), etc. now receive a normalized-
+  call rather than a shell-shape `:command`. Every helper they read
+  (`arg-literals`, `non-option-positional-literals`, `option?`,
+  `host-from-url`, `net-targets-from-args`, `literal-token?`,
+  `token-literal-value`) moved to `shell-classify.call`.
+
+Two entry points are exposed:
+
+- `effects/classify-call` — the parser-neutral dispatch:
+  `(registry, normalized-call, ctx) → effects`. New consumers
+  (muschel, other bash parsers) call this with a normalized-call
+  they constructed via their own adapter.
+- `effects/classify-command` — the shell-shape shim, preserved for
+  backward compatibility. Internally translates `:command` to a
+  normalized-call via `call/from-shell-shape-command` and delegates
+  to `classify-call`. ssc's walker uses this seam directly.
+
+**Adapter contract.** Non-shell-shape parsers (e.g. muschel's bash
+AST) write their own translator that produces a normalized-call.
+Universal classifiers (`rm`, `mv`, `cp`, `curl`, `wget`, `grep`,
+`sed`, `awk`, `jq`, `git`, `tar`, `ls`, …) run unchanged — they
+only read `:program` / `:argv` / `:assigns`. A small coupled
+minority (ssh / trap body-recursion, find expression scanning,
+source / shell-interpret) reaches back through `:raw` for shape-
+specific access; muschel can either populate `:raw` with a shell-
+shape-compatible bag for the few coupling spots or curate their
+registry to exclude those classifiers.
+
+### Breaking
+
+- **Program-classifier function signature** changed from
+  `(fn [shell-shape-command ctx] → effects)` to
+  `(fn [normalized-call ctx] → effects)`. Consumers that registered
+  custom classifiers via `eff/active-registry` swap (operator
+  overlay, witness self-classifier) update their fns to read
+  `:argv` instead of `:args` and use `shell-classify.call/*`
+  helpers in place of the previously private (now removed) helpers
+  on `effects`. The migration is mechanical — see
+  `continuity-witness v0.30.0`'s `effects.clj` for the canonical
+  example.
+- **Removed from `shell-classify.effects`** (moved to
+  `shell-classify.call`): `arg-literals`, `option?`,
+  `literal-token?`, `token-literal-value`, `non-option-positional-
+  literals`, `host-from-url`, `net-targets-from-args`,
+  `arg-literal-scope`, `process-sub-fd-scope`. The public surface
+  on `effects` shrinks to: the effect-class taxonomy, classify-*
+  factories, `default-registry`, `*registry-override*`,
+  `active-registry`, `classify-call`, `classify-command` (shim),
+  `mk` (still the canonical effect-instance constructor; the
+  `cmd`-arg now expects a normalized-call's `:program`).
+
+### Added
+
+- **`shell-classify.call`** — normalized-call shape + helpers. The
+  ns docstring is the contract muschel-and-friends read to write
+  their adapter. `from-shell-shape-command` translates a shell-shape
+  `:command` to a normalized-call; external parsers write their own.
+- **`shell-classify.effects/classify-call`** — parser-neutral entry
+  point. New consumers use this.
+
+### Changed
+
+- **`shell-classify.effects`** — every classify-* factory's inner
+  fn now consumes the normalized-call shape via `call/` helpers.
+  The factory signatures, the registry-spec map shape, and the
+  emitted effect-instances are unchanged.
+- **`shell-classify.classify`** — `classify-command-resolved`
+  builds the normalized-call once at the dispatch site (via
+  `call/from-shell-shape-command`) and delegates to
+  `effects/classify-call`. The walker's shell-shape coupling is
+  unchanged; only the per-command dispatch is parser-neutral.
+
+### Migration
+
+A consumer that registered `(fn [cmd ctx] (when (= "myprog"
+(:program cmd)) [(eff/mk :fs-read (first (eff/arg-literals cmd))
+:my-prog cmd)]))` updates to
+`(fn [norm-call ctx] (when (= "myprog" (:program norm-call))
+[(eff/mk :fs-read (first (call/arg-literals norm-call)) :my-prog
+norm-call)]))` — three callsite changes: `eff/arg-literals` →
+`call/arg-literals`, `(:args cmd)` → `(:argv norm-call)`
+(if it was reading `:args` directly), and the `cmd` param rename
+is cosmetic. See `continuity-witness/src/continuity_witness/
+effects.clj` post-v0.30.0 for a real-world before/after.
+
+### Tests
+
+- **694 tests, 1414 assertions, 0 failures.** Overlay tests now
+  exercise classifiers through a normalized-call constructed via
+  `call/from-shell-shape-command` (4 tests refit to the new
+  signature, no semantic change). All other suites (built-in
+  registry, classify-tree pipeline, per-language classifiers,
+  property tests, adversarial corpora) pass unchanged.
+
 ## [0.1.1] — 2026-06-19
 
 **Publication-readiness cut.** Switches the upstream `shell-shape`

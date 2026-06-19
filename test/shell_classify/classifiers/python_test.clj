@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classifiers.python-test
+(ns shell-classify.classifiers.python-test
   "Per-language stdlib effect classifier for Python (P5.1 / v0.13.0).
 
   Tests verify the end-to-end pipeline from shell-shape's :script
@@ -10,7 +10,7 @@
   classify-tree dispatches to classifiers/python via the :dialect
   discriminator."
   (:require [clojure.test :refer [deftest is testing]]
-            [shell-shape-classify.classify :as cls]
+            [shell-classify.classify :as cls]
             [shell-shape.dialect.python :as py]))
 
 (defn- effects-of [py-src]

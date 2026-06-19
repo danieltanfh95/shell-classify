@@ -1,4 +1,4 @@
-(ns shell-shape-classify.argv-shape
+(ns shell-classify.argv-shape
   "v0.10.0 (P2) — predicate-set DSL over normalized argv.
 
   Position-invariance is the load-bearing property: a policy author

@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classifiers.perl
+(ns shell-classify.classifiers.perl
   "Per-language stdlib effect classifier for the Perl interpreter
   dialect — Plan §7 Move 5 / P5.4.
 

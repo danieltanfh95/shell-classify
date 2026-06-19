@@ -1,7 +1,7 @@
-(ns shell-shape-classify.classifiers.ruby-test
+(ns shell-classify.classifiers.ruby-test
   "Ruby stdlib effect classifier (P5.3 / v0.15.0)."
   (:require [clojure.test :refer [deftest is testing]]
-            [shell-shape-classify.classify :as cls]
+            [shell-classify.classify :as cls]
             [shell-shape.dialect.ruby :as ruby]))
 
 (defn- effects-of [src]

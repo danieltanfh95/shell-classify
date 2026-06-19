@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classify
+(ns shell-classify.classify
   "Workflow-tree → effect-set closure pass.
 
   Given a populated `shell-shape.core/parse` tree, walk every command,
@@ -63,14 +63,15 @@
     Broken      cat <<EOF | grep | sh — :program-source body-parse is
     chain      :unresolved {:reason :unknown-stdin-as-source} → opaque."
   (:require [clojure.string :as str]
-            [shell-shape-classify.bindings :as bind]
-            [shell-shape-classify.classifiers.node :as node-cls]
-            [shell-shape-classify.classifiers.perl :as perl-cls]
-            [shell-shape-classify.classifiers.python :as py-cls]
-            [shell-shape-classify.classifiers.ruby :as ruby-cls]
-            [shell-shape-classify.effects :as eff]
-            [shell-shape-classify.env-resolve :as env]
-            [shell-shape-classify.passthrough-payload :as pp]
+            [shell-classify.bindings :as bind]
+            [shell-classify.call :as call]
+            [shell-classify.classifiers.node :as node-cls]
+            [shell-classify.classifiers.perl :as perl-cls]
+            [shell-classify.classifiers.python :as py-cls]
+            [shell-classify.classifiers.ruby :as ruby-cls]
+            [shell-classify.effects :as eff]
+            [shell-classify.env-resolve :as env]
+            [shell-classify.passthrough-payload :as pp]
             [shell-shape.core :as ss]))
 
 (declare classify-tree classify-tree* classify-pipeline classify-pipeline*
@@ -507,7 +508,16 @@
                               :current-cmd cmd
                               :bindings    effective-bnds)
         registry       (:registry ctx)
-        own            (eff/classify-command registry cmd ctx)
+        ;; v0.2.0 — translate the binding-resolved shell-shape :command
+        ;; into a parser-neutral normalized-call before invoking the
+        ;; per-program classifier registry. The walker stays shell-
+        ;; shape-coupled (it knows :script/:pipeline/:command/:group/
+        ;; :program-sources, etc.); only the per-program dispatch is
+        ;; parser-neutral, so non-shell-shape parsers (muschel) can
+        ;; reuse the registry by constructing their own normalized-
+        ;; calls and calling `eff/classify-call` directly.
+        norm-call      (call/from-shell-shape-command cmd)
+        own            (eff/classify-call registry norm-call ctx)
         redirs         (reduce (fn [acc rd] (into acc (classify-redirect ctx cmd rd)))
                                []
                                (:redirects cmd))

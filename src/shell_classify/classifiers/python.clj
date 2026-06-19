@@ -1,4 +1,4 @@
-(ns shell-shape-classify.classifiers.python
+(ns shell-classify.classifiers.python
   "Per-language stdlib effect classifier for the Python interpreter
   dialect — Plan §7 Move 5 / P5.1.
 
@@ -21,7 +21,7 @@
   2. **Recursive shell descent** — `subprocess.run([...])` /
      `os.system(\"...\")` produce shell-shape `:command` records that
      recursively traverse through the existing
-     `shell-shape-classify.classify` pipeline. The shell-shape side has
+     `shell-classify.classify` pipeline. The shell-shape side has
      already synthesized `:spawned-commands` from list-literal argv;
      for string-form (`shell=True`, `os.system`), this ns parses the
      string via the bash dialect.
@@ -65,7 +65,7 @@
   (:require [clojure.string :as str]
             [shell-shape.core :as ss]))
 
-;; ctx :classify-tree is threaded from shell-shape-classify.classify —
+;; ctx :classify-tree is threaded from shell-classify.classify —
 ;; using it (rather than a direct require) breaks the circular
 ;; dependency between classify ↔ classifiers/python.
 

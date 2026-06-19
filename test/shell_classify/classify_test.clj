@@ -1,11 +1,11 @@
-(ns shell-shape-classify.classify-test
+(ns shell-classify.classify-test
   "Tests for the v0.5.0 effect-classification pass — workflow-tree
   → effect-set. Verifies the program-classifier registry + composition
-  rules in shell-shape-classify.classify against expected effect-instances."
+  rules in shell-classify.classify against expected effect-instances."
   (:require
    [clojure.test :refer [deftest is testing]]
-   [shell-shape-classify.classify :as cls]
-   [shell-shape-classify.effects :as eff]
+   [shell-classify.classify :as cls]
+   [shell-classify.effects :as eff]
    [shell-shape.core :as ss]))
 
 ;; ---- Helpers ---------------------------------------------------------

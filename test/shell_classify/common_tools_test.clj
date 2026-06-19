@@ -1,4 +1,4 @@
-(ns shell-shape-classify.common-tools-test
+(ns shell-classify.common-tools-test
   "Classifier coverage for the common-tool entries added in v0.1.0
    alongside the witness hoist: process tools (pkill/pgrep), filesystem
    inventory (df/du/free/uptime/whereis), pure (sleep/yes), tee, gh,
@@ -7,8 +7,8 @@
    classifier rewrite cannot silently downgrade these to opaque."
   (:require
    [clojure.test :refer [deftest is testing]]
-   [shell-shape-classify.classify :as cls]
-   [shell-shape-classify.effects :as eff]
+   [shell-classify.classify :as cls]
+   [shell-classify.effects :as eff]
    [shell-shape.core :as ss]))
 
 (defn- pairs-of [cmd-str]

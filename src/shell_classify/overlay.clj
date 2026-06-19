@@ -1,4 +1,4 @@
-(ns shell-shape-classify.overlay
+(ns shell-classify.overlay
   "Operator-facing program-classifier overlay.
 
    v0.28.0 — operators can extend the program-classifier registry by
@@ -58,7 +58,7 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as str]
-   [shell-shape-classify.effects :as eff]))
+   [shell-classify.effects :as eff]))
 
 ;; ---- Data: closed kinds & per-kind required fields ---------------------
 

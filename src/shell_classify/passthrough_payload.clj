@@ -1,4 +1,4 @@
-(ns shell-shape-classify.passthrough-payload
+(ns shell-classify.passthrough-payload
   "P7b — payload extraction for pipe-to-file content classification.
 
   When `echo \"rm -rf /\" > /tmp/danger.sh` is parsed, the witness

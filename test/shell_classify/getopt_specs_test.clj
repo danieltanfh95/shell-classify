@@ -1,9 +1,9 @@
-(ns shell-shape-classify.getopt-specs-test
+(ns shell-classify.getopt-specs-test
   "Per-program getopt normalization: GNU getopt, --flag=value, opts-with-arg
    consumption, bundling, `--` stop-token, tar's leading bundle, find's
    predicate syntax, dd's key=value, BSD-getopt restrictions."
   (:require [clojure.test :refer [deftest is testing]]
-            [shell-shape-classify.getopt-specs :as gs]))
+            [shell-classify.getopt-specs :as gs]))
 
 ;; ---- Basic GNU getopt --------------------------------------------------
 

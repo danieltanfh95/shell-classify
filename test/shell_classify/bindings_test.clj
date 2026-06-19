@@ -1,11 +1,11 @@
-(ns shell-shape-classify.bindings-test
+(ns shell-classify.bindings-test
   "Unit tests for P7a same-string binding extraction and substitution
-  helpers in shell-shape-classify.bindings. The classify-side integration
+  helpers in shell-classify.bindings. The classify-side integration
   (eval $VAR → :fs-delete /tmp/x and friends) is covered in
   resolved-eval-test."
   (:require
    [clojure.test :refer [deftest is testing]]
-   [shell-shape-classify.bindings :as bind]
+   [shell-classify.bindings :as bind]
    [shell-shape.core :as ss]))
 
 ;; ---- assignment-shape? -----------------------------------------------------

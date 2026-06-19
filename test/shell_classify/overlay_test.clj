@@ -1,4 +1,4 @@
-(ns shell-shape-classify.overlay-test
+(ns shell-classify.overlay-test
   "v0.28.0 — operator-facing classifier overlay tests.
 
    Covers:
@@ -17,8 +17,9 @@
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
-   [shell-shape-classify.overlay :as overlay]
-   [shell-shape-classify.effects :as eff]
+   [shell-classify.overlay :as overlay]
+   [shell-classify.call :as call]
+   [shell-classify.effects :as eff]
    [shell-shape.core :as ss])
   (:import
    (java.nio.file Files)
@@ -66,11 +67,16 @@
         (is (= :test (:rule entry)))))))
 
 (deftest parse-overlay-classifies-correctly-by-kind
+  ;; v0.2.0 — classifiers receive a normalized-call (see
+  ;; `shell-classify.call`). Construct via `from-shell-shape-
+  ;; command` (the test exercises the classifier function directly,
+  ;; not the full classify-tree pipeline which would normalize for us).
   (testing ":pure classifier emits stdout-emit"
     (let [data {"sleep" (spec {:kind :pure :rule :sleep})}
           result (overlay/parse-overlay data)
           classify (-> result :specs (get "sleep") :classify)
-          effs (classify {:program "sleep" :args []} {})]
+          effs (classify (call/from-shell-shape-command
+                          {:program "sleep" :args []}) {})]
       (is (= 1 (count effs)))
       (is (= :stdout-emit (-> effs first :class)))))
 
@@ -78,7 +84,8 @@
     (let [data {"pkill" (spec {:kind :proc-signal :rule :pkill :scope "?"})}
           result (overlay/parse-overlay data)
           classify (-> result :specs (get "pkill") :classify)
-          effs (classify {:program "pkill" :args []} {})]
+          effs (classify (call/from-shell-shape-command
+                          {:program "pkill" :args []}) {})]
       (is (= :proc-signal (-> effs first :class)))
       (is (= "?" (-> effs first :scope)))))
 
@@ -86,7 +93,8 @@
     (let [data {"bb" (spec {:kind :shell-interpret :rule :bb :dialect :clojure})}
           result (overlay/parse-overlay data)
           classify (-> result :specs (get "bb") :classify)
-          effs (classify {:program "bb" :args []} {})]
+          effs (classify (call/from-shell-shape-command
+                          {:program "bb" :args []}) {})]
       (is (= :shell-interpret (-> effs first :class)))
       (is (= "clojure" (-> effs first :scope)))))
 
@@ -95,11 +103,8 @@
           result (overlay/parse-overlay data)
           classify (-> result :specs (get "tee") :classify)
           cmd (ss/parse "tee out.txt")
-          ;; Reach the single :command node; the test exercises the
-          ;; classifier function directly with the parsed args, not
-          ;; the full classify-tree (we just need the args/program shape).
           cmd-node (-> cmd :nodes first :stages first)
-          effs (classify cmd-node {})]
+          effs (classify (call/from-shell-shape-command cmd-node) {})]
       (is (some #(= :fs-write (:class %)) effs)))))
 
 ;; ---- parse-overlay: validation errors ----------------------------------
