@@ -423,6 +423,18 @@
 (defn- sudo-own-effects [cmd _ctx]
   [(mk :privilege-elevate "root" :sudo cmd)])
 
+(defn- xargs-own-effects
+  "xargs reads its targets from stdin and substitutes them into the
+   wrapped command's argv at run-time. The classifier sees only the
+   static argv (e.g. `xargs sudo rm` shows `rm` with no operands) so
+   it cannot resolve what actually gets operated on — emit :opaque
+   marked `xargs-stdin-fed-argv` so policy templates see the
+   indeterminacy and either grant that scope explicitly or defer.
+   Without this own-effect, `xargs sudo rm` clears any gate that
+   permits `sudo` + bare `rm`, even though the targets are stdin-fed."
+  [cmd _ctx]
+  [(mk :opaque "xargs-stdin-fed-argv" :xargs cmd)])
+
 ;; ---- env-mutate detection (env VAR=val cmd) ----------------------------
 ;;
 ;; Shell-shape's :positional-skip-assignments strategy populates env's
@@ -1158,8 +1170,11 @@
    {"sudo"    {:doc "sudo — privilege elevation + wrapped command"
                :classify (wrapper-classifier sudo-own-effects)
                :stdin :data :stdout :data :wraps? true}
-    "xargs"   {:doc "xargs — invokes wrapped command per stdin line"
-               :classify (wrapper-classifier nil)
+    "xargs"   {:doc "xargs — invokes wrapped command per stdin line;
+                          stdin fills the wrapped argv → :opaque own-effect
+                          marked `xargs-stdin-fed-argv` so policies see the
+                          indeterminacy."
+               :classify (wrapper-classifier xargs-own-effects)
                :stdin :data :stdout :data :wraps? true}
     "nice"    {:doc "nice — adjusts priority, delegates to wrapped"
                :classify (wrapper-classifier nil)

@@ -4,6 +4,63 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-06-19
+
+**Fix: `xargs` own-effect closes the stdin-fed-argv hole.** The
+`xargs` registry entry shipped as `(wrapper-classifier nil)` — no
+own-effects, transparent delegation to the wrapped command.
+Operationally that's wrong: xargs reads its actual operands from
+**stdin** and substitutes them into the wrapped argv at run-time,
+so the static argv the classifier sees (e.g. `xargs sudo rm` shows
+`rm` with no path operands) systematically under-represents what
+will execute. Witness's nested-wrapper-corpus had 5 failing entries
+documenting this — every case with `xargs` in the wrapper chain
+silently dropped the indeterminacy marker.
+
+Adds `xargs-own-effects` emitting:
+
+```
+{:class :opaque
+ :scope "xargs-stdin-fed-argv"
+ :provenance {:rule :xargs :program "xargs"}}
+```
+
+The inner-command family signal still flows through
+`effects-of-invokes` — `xargs rm` continues to emit
+`[:fs-delete "?"]` from v0.24.3's design (informative family
+classification with unknown scope). The new own-effect is
+**additional**, not replacing: both must be present, and granting
+either alone is insufficient to clear the gate. Closes the
+`fs-delete:**` over-approximation hole where a broad delete grant
+would otherwise pass `xargs sudo rm` despite stdin-fed targets.
+
+### Changed
+
+- **`src/shell_classify/effects.clj`** — adds `xargs-own-effects`;
+  `xargs` registry entry switches from `(wrapper-classifier nil)` to
+  `(wrapper-classifier xargs-own-effects)`. No other wrapper entry
+  affected.
+- **`test/shell_classify/classify_test.clj`** — `xargs-delegates-
+  to-wrapped-family` updated: was `(is (not (has-class? "xargs rm"
+  :opaque)))` reflecting the pre-fix design; now asserts both the
+  family signal AND the new `:opaque "xargs-stdin-fed-argv"` own-
+  effect. Docstring/rationale updated.
+
+### Policy impact
+
+This is a security-positive widening: the substrate previously
+under-approximated xargs's effect surface, so policies that gated
+on `:fs-delete` (or any inner family) cleared `xargs <cmd>` even
+though the actual operands were stdin-fed. After v0.2.1, policies
+need to explicitly grant `opaque:xargs-stdin-fed-argv` (or grant
+the broad `:opaque` axis) in addition to the inner family scope.
+Standard witness policy templates do NOT grant
+`opaque:xargs-stdin-fed-argv`, so xargs invocations now defer by
+default — operator must approve out-of-band. Pre-v0.2.1 policies
+relying on the under-approximation should explicitly add the new
+scope if they want to preserve the prior auto-allow behavior; the
+recommended path is to leave the new default in place.
+
 ## [0.2.0] — 2026-06-19
 
 **Decomplection + rename. Two coordinated breaking changes shipping

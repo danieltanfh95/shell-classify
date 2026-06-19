@@ -132,15 +132,19 @@
     (is (contains? p [:fs-delete "/etc/passwd"]))))
 
 (deftest xargs-delegates-to-wrapped-family
-  ;; xargs feeds stdin lines as args to the wrapped command. Statically
-  ;; the inner rm has no positional path, but the EFFECT FAMILY (delete)
-  ;; is known. v0.24.3 emits `[:fs-delete \"?\"]` — informative
-  ;; classification with unknown scope, rather than `:opaque :no-target`
-  ;; (which loses the family signal). Standard policy templates don't
-  ;; grant `fs-delete:?` so this still defers by default; `fs-delete:**`
-  ;; grants it.
+  ;; xargs feeds stdin lines as args to the wrapped command. The
+  ;; classifier emits two effects in parallel: the inner-command
+  ;; family signal (`[:fs-delete \"?\"]` — preserved from v0.24.3)
+  ;; AND xargs's own `[:opaque \"xargs-stdin-fed-argv\"]` (v0.2.1)
+  ;; marking the indeterminacy of the stdin-fed argv. The family
+  ;; signal lets precise policies (`fs-delete:/tmp/**`) still
+  ;; recognize the kind of operation; the :opaque own-effect closes
+  ;; the `fs-delete:**` over-approximation hole — without it, a
+  ;; broad delete grant would clear `xargs sudo rm` even though
+  ;; the targets are stdin-fed. Both must be present; granting
+  ;; either alone is insufficient.
   (is (has-pair? "xargs rm" :fs-delete "?"))
-  (is (not (has-class? "xargs rm" :opaque))))
+  (is (has-pair? "xargs rm" :opaque "xargs-stdin-fed-argv")))
 
 (deftest nice-delegates
   (is (has-class? "nice ls /tmp" :fs-read)))
