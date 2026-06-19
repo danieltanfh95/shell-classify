@@ -1,15 +1,9 @@
 # shell-classify
 
-> **Renamed from `shell-shape-classify` in v0.2.0.** The old GitHub
-> URL auto-forwards; deps.edn coordinate is now
-> `io.github.danieltanfh95/shell-classify` and the Clojure
-> namespaces are `shell-classify.*`. v0.1.x history under the old
-> name is preserved in `CHANGELOG.md`.
-
-Per-program effect classification, parser-neutral. The reference
-parser is [shell-shape](../shell-shape) (v0.2.0+ ships a small
-adapter for it); other bash parsers translate their command shape
-into a normalized-call and run the same registry.
+Parsed shell commands → effects. Parser-neutral: the registry
+consumes a normalized-call shape, so any bash parser plugs in via a
+small adapter. [shell-shape](../shell-shape) is the reference
+parser.
 
 ```clojure
 (require '[shell-shape.core :as ss])
@@ -40,12 +34,9 @@ at the consumer layer; this lib stays scoped to shell programs.
 ## Why split this out from continuity-witness
 
 shell-classify is the classifier registry, hoisted out of
-[continuity-witness](../continuity-witness) in v0.29.0 (where it
-shipped as `shell-shape-classify`) so non-witness consumers
-(e.g. [muschel](../muschel)) can reuse it without pulling
-biscuit-java + the witness daemon. v0.2.0 finished the
-decoupling by making the registry parser-neutral and renaming
-accordingly.
+[continuity-witness](../continuity-witness) so non-witness
+consumers (e.g. [muschel](../muschel)) can reuse it without
+pulling biscuit-java + the witness daemon.
 
 The witness keeps a thin shim at `continuity-witness.effects` that
 re-exports this lib's surface and layers two witness-specific
@@ -84,24 +75,23 @@ self-mint hole.
 
 ## Status
 
-v0.2.0 — **renamed from `shell-shape-classify` to `shell-classify`**;
-per-program classifier registry decomplected from any specific
-parse-tree shape. The registry now consumes a parser-neutral
-*normalized-call* (`shell-classify.call`), so non-shell-shape
-parsers (e.g. muschel's bash AST) can reuse the taxonomy by
-translating their command shape into a normalized-call and calling
-`effects/classify-call`. The tree walker (`classify.clj`) remains
-shell-shape-coupled by design — that is how this lib earns its keep
-inside a shell-shape pipeline. Breaking for consumers that
-registered custom classifiers via `active-registry` swap
-(mechanical migration; see `CHANGELOG.md [0.2.0]`).
+v0.2.1 — `xargs` own-effect `[:opaque "xargs-stdin-fed-argv"]`
+closes the under-approximation where xargs's stdin-fed argv
+cleared inner-family gates (e.g. `:fs-delete:**`) despite the
+operands being stdin-determined. The inner-command family signal
+still flows; the new own-effect is additional, not replacing.
+Standard policy templates don't grant `opaque:xargs-stdin-fed-argv`,
+so xargs invocations now defer by default.
 
-v0.1.1 — publication-readiness cut. Git-coordinate pin against
-shell-shape v0.8.0; lint config tracked; minor dead-code cleanup.
-(Shipped under the old name `shell-shape-classify`.)
-
-v0.1.0 — initial release. (Shipped under the old name
-`shell-shape-classify`.)
+v0.2.0 — registry decomplected from any specific parse-tree shape.
+Consumes a parser-neutral *normalized-call*
+(`shell-classify.call`), so non-shell-shape parsers (e.g.
+muschel's bash AST) reuse the taxonomy by translating their
+command shape and calling `effects/classify-call`. The tree
+walker (`classify.clj`) remains shell-shape-coupled by design.
+Breaking for consumers that registered custom classifiers via
+`active-registry` swap (mechanical migration; see
+`CHANGELOG.md [0.2.0]`).
 
 The classifier substrate. The taxonomy is closed (the
 `:effect-classes` set). Adding a new program follows one of:
