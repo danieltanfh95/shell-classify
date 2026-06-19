@@ -1,0 +1,19 @@
+;; clj-kondo configuration for shell-shape-classify. Matches the
+;; sibling continuity-witness + shell-shape configs so the three
+;; repos lint consistently.
+{:linters
+ {:unused-namespace          {:exclude [clojure.test]}
+  :unused-referred-var       {:exclude {clojure.test [deftest is testing use-fixtures]}}
+  :missing-docstring         {:level :off}
+  :line-length               {:max-line-length 120 :level :warning}
+  ;; shell-shape.core lives in a sibling lib pulled via :git/url; kondo
+  ;; resolves it on first run after `clj -Spath` populates the dep
+  ;; cache. Until that bootstrap happens (fresh clone), suppress the
+  ;; unresolved-ns noise so first-time `bb lint` is clean.
+  :unresolved-namespace      {:exclude [shell-shape.core]}
+  :consistent-alias
+  {:aliases {clojure.string                str
+             clojure.set                   set
+             clojure.test                  test
+             clojure.test.check.generators gen
+             clojure.test.check.properties prop}}}}

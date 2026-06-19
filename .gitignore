@@ -2,7 +2,9 @@
 .cpcache/
 .cljs_node_repl/
 .lsp/
-.clj-kondo/
+.clj-kondo/.cache/
+.replsh/
+.succession/
 target/
 *.jar
 .DS_Store

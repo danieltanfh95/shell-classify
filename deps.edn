@@ -6,9 +6,11 @@
   ;; The shell-program parser. shell-shape-classify is the *interpretation*
   ;; layer above shell-shape's tree: it walks parsed commands and emits
   ;; a bounded effect-set per program.
-  ;; Source: ../shell-shape (sister repo).
+  ;; Source: github.com/danieltanfh95/shell-shape
   io.github.danieltanfh95/shell-shape
-  {:local/root "../shell-shape"}}
+  {:git/url "https://github.com/danieltanfh95/shell-shape"
+   :git/tag "v0.8.0"
+   :git/sha "5cfff3e2f0fbc7d065aeb3a8be5295e1a934db8c"}}
 
  :aliases
  {:dev
@@ -29,4 +31,13 @@
 
   :lint
   {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
-   :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "test"]}}}
+   :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "test"]}
+
+  ;; Sister-checkout override. Activate with `clj -M:test:local-dev` to
+  ;; resolve `shell-shape` against `../shell-shape` instead of the
+  ;; pinned :git/url. Useful when developing the two repos in lockstep
+  ;; before cutting a new shell-shape release. External consumers don't
+  ;; need this alias — `clj -M:test` works against the git pin.
+  :local-dev
+  {:override-deps
+   {io.github.danieltanfh95/shell-shape {:local/root "../shell-shape"}}}}}

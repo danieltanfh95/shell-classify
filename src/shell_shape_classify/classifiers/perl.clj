@@ -184,8 +184,7 @@
   (fn [_ctx callable {:keys [args]}]
     (let [mode (or (arg-string args 1) "<")
           path-2arg (when (= 2 (count args)) (arg-string args 1))
-          path-3arg (when (>= (count args) 3) (arg-string args 2))
-          path (or path-2arg path-3arg)]
+          path-3arg (when (>= (count args) 3) (arg-string args 2))]
       (cond
         ;; 3-arg form with a path
         path-3arg

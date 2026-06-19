@@ -203,14 +203,6 @@
 
 ;; ---- Path / URL parsing ------------------------------------------------
 
-(defn- path-args
-  "Backwards-compatible accessor — returns just the :paths vector
-   from `non-option-positional-literals` (nil if non-literal arg).
-   Callers that need the :stdin-consumed? signal must call
-   `non-option-positional-literals` directly."
-  [cmd]
-  (:paths (non-option-positional-literals cmd)))
-
 (defn- host-from-url
   "Extract host from a URL-shaped arg. Returns nil if not a URL."
   [s]

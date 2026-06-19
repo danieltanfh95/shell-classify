@@ -129,7 +129,7 @@
       (flag! nil :spec-not-map
              (str "spec must be a map, got " (type spec))))
     (when (map? spec)
-      (let [{:keys [doc kind rule dialect stdin stdout file-class
+      (let [{:keys [doc kind rule dialect file-class
                     scope emit-stdout?]} spec]
         (when-not (non-empty-string? doc)
           (flag! :doc :missing-or-empty

@@ -4,6 +4,45 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-06-19
+
+**Publication-readiness cut.** Switches the upstream `shell-shape`
+dep from `:local/root "../shell-shape"` to a git-coordinate pin
+against the freshly-cut [v0.8.0](https://github.com/danieltanfh95/shell-shape/releases/tag/v0.8.0)
+so the lib resolves cleanly for downstream consumers without a
+sister checkout. Bundles four dead-code lint cleanups in `src/`
+(no behavior change) and tooling tidy. No public API change.
+
+### Changed
+
+- **`deps.edn`**: `io.github.danieltanfh95/shell-shape`
+  `:local/root` → `:git/url "https://github.com/danieltanfh95/shell-shape" :git/tag "v0.8.0" :git/sha "5cfff3e"`.
+  Picks up shell-shape v0.8.0's spawned-commands walker descent —
+  cross-dialect interpreter spawns (`subprocess.run(["git","push"])`,
+  Node `execFileSync`, Ruby `Process.spawn`, Perl `system`
+  list-form) now surface their inner commands to `ss/roots`, which
+  the ssc classifier walks for the standard descent.
+
+### Tooling
+
+- **`.clj-kondo/config.edn` tracked** — matches the sibling
+  shell-shape + continuity-witness configs. `bb lint` is
+  0 errors / 0 warnings. Includes a one-time
+  `:unresolved-namespace [shell-shape.core]` exclusion that
+  suppresses noise on first-time `bb lint` before `clj -Spath`
+  populates the gitlib cache.
+- **`.gitignore`** — adds `.replsh/` + `.succession/`; narrows
+  `.clj-kondo/` to `.clj-kondo/.cache/` so the new config tracks.
+- **Dead-code cleanups in `src/`**:
+  - `classifiers/perl.clj` — drops an unused `path` binding in
+    the open-mode branch (was shadowed by `path-2arg`/`path-3arg`).
+  - `classify.clj` — deletes the unused `classify-stage` wrapper
+    fn (callers already used the underlying `classify-pipeline`).
+  - `effects.clj` — deletes the backwards-compat `path-args`
+    accessor (no in-repo callers; pre-v0.1.0 shim).
+  - `overlay.clj` — drops `stdin` / `stdout` from the spec
+    destructure since validation reads them via `(get spec k)`.
+
 ## [0.1.0] — 2026-06-17
 
 **Initial release.** Hoisted out of

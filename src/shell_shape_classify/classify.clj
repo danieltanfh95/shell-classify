@@ -591,11 +591,6 @@
       :group   (classify-group* ctx stage)
       [[] in-bnds])))
 
-(defn- classify-stage
-  "Pipeline stage may be :command or :group (v0.3.0 / v0.7.0)."
-  [ctx stage]
-  (first (classify-stage* ctx stage)))
-
 (defn- stage-standalone-binding
   "If `stage` is a :command shaped as a pure standalone assignment
    (`FOO=bar` with no args or redirects), return `{:name :value}` so
