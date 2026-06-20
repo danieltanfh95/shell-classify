@@ -1,7 +1,7 @@
 (ns shell-classify.classify-test
-  "Tests for the v0.5.0 effect-classification pass — workflow-tree
-  → effect-set. Verifies the program-classifier registry + composition
-  rules in shell-classify.classify against expected effect-instances."
+  "Tests for the effect-classification pass — workflow-tree → effect-set.
+  Verifies the program-classifier registry + composition rules in
+  shell-classify.classify against expected effect-instances."
   (:require
    [clojure.test :refer [deftest is testing]]
    [shell-classify.classify :as cls]
@@ -134,9 +134,9 @@
 (deftest xargs-delegates-to-wrapped-family
   ;; xargs feeds stdin lines as args to the wrapped command. The
   ;; classifier emits two effects in parallel: the inner-command
-  ;; family signal (`[:fs-delete \"?\"]` — preserved from v0.24.3)
-  ;; AND xargs's own `[:opaque \"xargs-stdin-fed-argv\"]` (v0.2.1)
-  ;; marking the indeterminacy of the stdin-fed argv. The family
+  ;; family signal (`[:fs-delete \"?\"]`) AND xargs's own
+  ;; `[:opaque \"xargs-stdin-fed-argv\"]` marking the indeterminacy of
+  ;; the stdin-fed argv. The family
   ;; signal lets precise policies (`fs-delete:/tmp/**`) still
   ;; recognize the kind of operation; the :opaque own-effect closes
   ;; the `fs-delete:**` over-approximation hole — without it, a
@@ -154,7 +154,7 @@
     (is (contains? p [:fs-read "."])           "find . → :fs-read .")
     (is (contains? p [:fs-delete "/tmp/x"])    "rm /tmp/x via xargs → :fs-delete /tmp/x")
     (is (contains? p [:opaque "xargs-stdin-fed-argv"])
-        "xargs stdin-fed argv → :opaque marker (v0.2.1)")))
+        "xargs stdin-fed argv → :opaque marker")))
 
 (deftest nice-delegates
   (is (has-class? "nice ls /tmp" :fs-read)))
@@ -168,8 +168,7 @@
   ;; :invokes on the find command with the parsed -exec body; classify
   ;; descends :invokes in classify-command regardless of find's leaf
   ;; classifier. This means find -exec composes the wrapped command's
-  ;; effects correctly today — the substrate has been right since v0.5.0,
-  ;; only the registry shape (find as :wraps? true) was misleading.
+  ;; effects correctly through :invokes.
   (let [p       (pairs-of "find . -name foo -exec rm {} ;")
         classes (set (map first p))]
     (is (contains? classes :fs-read)
@@ -178,22 +177,23 @@
         "wrapped rm via -exec → :fs-delete (substrate composes through :invokes)")))
 
 ;; ---------------------------------------------------------------------------
-;; v0.8.0 P0 — find predicate/action discrimination
+;; P0 — find predicate/action discrimination
 ;;
-;; Pre-v0.8.0, find used the generic classify-fs-read pattern. That generic
-;; pattern reads every literal that doesn't start with `-` as a positional
-;; path. Find's expression syntax breaks that assumption: `-type FOO`,
-;; `-name PAT`, etc. take a non-path value, and `-delete` is a destructive
-;; action that the generic classifier doesn't see.
+;; The generic classify-fs-read pattern reads every literal that doesn't
+;; start with `-` as a positional path. Find's expression syntax breaks
+;; that assumption: `-type FOO`, `-name PAT`, etc. take a non-path value,
+;; and `-delete` is a destructive action that the generic classifier
+;; doesn't see.
 ;;
-;; v0.8.0 ships a find-specific classifier that (a) stops positional
-;; extraction at the first expression token (`-...`, `(`, `)`, `!`, `,`)
-;; and (b) scans the expression for the `-delete` action and emits an
-;; additional :fs-delete on the starting paths when present.
+;; The find-specific classifier (a) stops positional extraction at the
+;; first expression token (`-...`, `(`, `)`, `!`, `,`) and (b) scans the
+;; expression for the `-delete` action and emits an additional
+;; :fs-delete on the starting paths when present.
 
 (deftest find-delete-emits-fs-delete
-  ;; Pre-v0.8.0: only [:fs-read "/tmp"] — silent over-grant under any
-  ;; :fs-read grant covering /tmp/**.
+  ;; Without an explicit :fs-delete on the starting path, a :fs-read
+  ;; grant covering /tmp/** would silently over-grant the destructive
+  ;; -delete action.
   (let [p (pairs-of "find /tmp -delete")]
     (is (contains? p [:fs-read "/tmp"])
         "find walks the filesystem first → :fs-read on starting path")
@@ -214,9 +214,9 @@
     (is (contains? p [:fs-delete "/b"]))))
 
 (deftest find-type-flag-value-not-treated-as-path
-  ;; Pre-v0.8.0: emitted both [:fs-read "/tmp"] AND [:fs-read "f"] — the
-  ;; "f" is the value of -type, not a path. v0.8.0 stops positional
-  ;; extraction at -type.
+  ;; The classifier stops positional extraction at the first expression
+  ;; token (`-type`), so `f` (the value of -type) is not misread as a
+  ;; path and does not emit a spurious [:fs-read "f"].
   (let [p (pairs-of "find /tmp -type f")]
     (is (contains? p [:fs-read "/tmp"]))
     (is (not (contains? p [:fs-read "f"]))
@@ -236,13 +236,12 @@
         "no -delete action → no :fs-delete")))
 
 ;; ---------------------------------------------------------------------------
-;; v0.8.0 P0 — git / tar baseline :proc-spawn
+;; P0 — git / tar baseline :proc-spawn
 ;;
-;; Pre-v0.8.0 both fell to :opaque "unclassified-program:<x>". The only
-;; way to authorize them was right(:opaque, "**", _) — the loaded-gun
-;; grant from thoughts.md line 23. Baseline :proc-spawn moves them off
-;; opaque without yet discriminating their subcommands (deferred to P2's
-;; argv-shape DSL).
+;; Without a baseline both fall to :opaque "unclassified-program:<x>",
+;; which forces the loaded-gun right(:opaque, "**", _) grant. Baseline
+;; :proc-spawn moves them off opaque without yet discriminating their
+;; subcommands (handled separately by the argv-shape DSL).
 
 (deftest git-baseline-proc-spawn
   (let [p (pairs-of "git status")]
@@ -265,12 +264,12 @@
     (is (contains? p [:proc-spawn "tar"]))
     (is (not (has-class? "tar cvf /tmp/out.tar /src" :opaque)))))
 
-;; v0.10.0 P2 — git / tar argv-shape discrimination
+;; P2 — git / tar argv-shape discrimination
 ;;
 ;; The argv-shape classifier emits the baseline :proc-spawn plus
 ;; per-subcommand extras. The shape name is stored on each effect-
 ;; record's :provenance.argv-shape (lifted to top-level :argv-shape
-;; by P1's enrich-effects in normalize.clj).
+;; by enrich-effects in normalize.clj).
 
 (deftest git-push-emits-net-out
   (let [eff (effects-of "git push origin main")]
@@ -375,9 +374,9 @@
     (is (contains? p [:fs-write "."]))))
 
 (deftest ssh-net-out-plus-remote-cmd-classify
-  ;; v0.7.0: ssh's literal remote command is recursively classified
-  ;; with scope prefixed `ssh:<host>:`. Local fs-read grants do NOT
-  ;; authorize the prefixed remote scope.
+  ;; ssh's literal remote command is recursively classified with scope
+  ;; prefixed `ssh:<host>:`. Local fs-read grants do NOT authorize the
+  ;; prefixed remote scope.
   (let [p (pairs-of "ssh user@host.com ls /tmp")]
     (is (contains? p [:net-out "host.com"])
         "user@ prefix stripped; host becomes the net-out scope")
@@ -466,9 +465,9 @@
     :must-classes #{:net-out}}
    {:probe "cut -d, -f1 /tmp/x"
     :must-pairs   #{[:fs-read "/tmp/x"]}}
-   ;; which / basename / dirname — v0.24.3: moved out of Group (a).
-   ;; which scans $PATH (env-read), it does not fs-read the command-name
-   ;; literal. basename / dirname are pure string ops — no fs touch.
+   ;; which / basename / dirname — not Group (a). which scans $PATH
+   ;; (env-read); it does not fs-read the command-name literal.
+   ;; basename / dirname are pure string ops — no fs touch.
    {:probe "which ls"
     :must-classes #{:env-read}
     :must-not-have #{:fs-read}}
@@ -497,9 +496,9 @@
    {:probe "rmdir /tmp/d"
     :must-pairs   #{[:fs-delete "/tmp/d"]}}
    {:probe "ssh u@h.com"
-    ;; v0.7.0: ssh-host-from-args strips the user@ prefix; the host is
-    ;; the scope. Authorizing host h.com authorizes whichever user the
-    ;; LLM chose to ssh as (still gated by network policy).
+    ;; ssh-host-from-args strips the user@ prefix; the host is the
+    ;; scope. Authorizing host h.com authorizes whichever user the LLM
+    ;; chose to ssh as (still gated by network policy).
     :must-pairs   #{[:net-out "h.com"]}}
    {:probe "netcat example.com 80"
     :must-pairs   #{[:net-out "example.com"]}}
@@ -514,14 +513,14 @@
    {:probe "paste /tmp/a /tmp/b"
     :must-pairs   #{[:fs-read "/tmp/a"] [:fs-read "/tmp/b"]}}
    {:probe "trap \"rm /tmp/x\" INT"
-    ;; v0.7.0: trap recursively classifies the literal body and
-    ;; prefixes each scope with `trap:` so registered effects can be
-    ;; authored separately from immediate-execution effects.
+    ;; trap recursively classifies the literal body and prefixes each
+    ;; scope with `trap:` so registered effects can be authored
+    ;; separately from immediate-execution effects.
     :must-pairs   #{[:fs-delete "trap:/tmp/x"]}}
 
-   ;; v0.8.0 P0 — find -delete + flag-with-value handling. Both rows
-   ;; pin classifier shape that the mutation harness would otherwise
-   ;; flip back to the pre-v0.8.0 generic classify-fs-read pattern.
+   ;; P0 — find -delete + flag-with-value handling. Both rows pin
+   ;; classifier shape that the mutation harness would otherwise flip
+   ;; back to the generic classify-fs-read pattern.
    {:probe "find /tmp -delete"
     :must-pairs   #{[:fs-read "/tmp"] [:fs-delete "/tmp"]}}
    {:probe "find /tmp -type f"
@@ -531,10 +530,11 @@
     :must-pairs    #{[:fs-read "/tmp"]}
     :must-not-have #{:opaque}}
 
-   ;; v0.8.0 P0 — git / tar baseline :proc-spawn. Pre-v0.8.0 both fell
-   ;; to :opaque "unclassified-program:..." which forced the loaded-gun
-   ;; right(:opaque, "**", _) grant. Baseline :proc-spawn lets policy
-   ;; authors grant git/tar without authorizing every opaque effect.
+   ;; P0 — git / tar baseline :proc-spawn. Without a baseline both
+   ;; fall to :opaque "unclassified-program:..." which forces the
+   ;; loaded-gun right(:opaque, "**", _) grant. Baseline :proc-spawn
+   ;; lets policy authors grant git/tar without authorizing every
+   ;; opaque effect.
    {:probe "git status"
     :must-pairs    #{[:proc-spawn "git"]}
     :must-not-have #{:opaque}}
@@ -542,12 +542,10 @@
     :must-pairs    #{[:proc-spawn "tar"]}
     :must-not-have #{:opaque}}
 
-   ;; v0.8.0 P0 — pre-existing entry-pin gaps surfaced by the seed-1
-   ;; selection shift after adding git/tar to the registry. The mutators
-   ;; (:swap-scope-glob, :drop-entry, :relax-classifier) flipped these
-   ;; entries silently before v0.8.0 because seed 1's iteration sequence
-   ;; happened to skip them. Pinning each — scope, class, and (for
-   ;; wrappers) :must-not-have :opaque — closes the gap permanently.
+   ;; P0 — entry-pin gaps for entries the mutators
+   ;; (:swap-scope-glob, :drop-entry, :relax-classifier) could flip
+   ;; silently. Pinning each — scope, class, and (for wrappers)
+   ;; :must-not-have :opaque — closes the gap permanently.
    {:probe "sort /tmp/x"     :must-pairs #{[:fs-read "/tmp/x"]}}
    {:probe "head /tmp/x"     :must-pairs #{[:fs-read "/tmp/x"]}}
    {:probe "tail /tmp/x"     :must-pairs #{[:fs-read "/tmp/x"]}}
@@ -663,9 +661,9 @@
 
 (deftest pipeline-ls-rm
   ;; ls /tmp | xargs rm — ls is fs-read; the rm via xargs has paths
-  ;; from stdin (statically unknown scope). v0.24.3: emits
-  ;; [:fs-delete \"?\"] instead of :opaque, preserving the delete-family
-  ;; signal for policy granularity.
+  ;; from stdin (statically unknown scope). Emits [:fs-delete \"?\"]
+  ;; (rather than :opaque) to preserve the delete-family signal for
+  ;; policy granularity.
   (let [p (pairs-of "ls /tmp | xargs rm")]
     (is (contains? (set (map first p)) :fs-read))
     (is (contains? p [:fs-delete "?"]))))
@@ -770,10 +768,10 @@
 
 (deftest sudo-nested-in-xargs
   ;; xargs sudo rm — wrapper of wrapper. xargs delegates to sudo;
-  ;; sudo emits privilege-elevate + delegates to rm. v0.24.3:
+  ;; sudo emits privilege-elevate + delegates to rm.
   ;; :stdin-fed-positionals? propagates through sudo's invokes descent,
   ;; so the inner rm's empty-paths surface as [:fs-delete \"?\"] rather
-  ;; than the v0.5.0 :opaque :no-target.
+  ;; than :opaque :no-target.
   (let [p (pairs-of "xargs sudo rm")]
     (is (contains? p [:privilege-elevate "root"]))
     (is (contains? p [:fs-delete "?"]))))
@@ -783,9 +781,9 @@
 ;; ===========================================================================
 
 (deftest cat-dash-emits-stdin-consume
-  ;; `cat -` reads stdin. Must not collapse to fs-read on "." (the
-  ;; v0.5.0 behavior treated "-" as a flag and fell through to the
-  ;; no-path default).
+  ;; `cat -` reads stdin. Must not collapse to fs-read on "." (which
+  ;; would happen if "-" were treated as a flag and fell through to
+  ;; the no-path default).
   (let [classes (classes-of "cat -")]
     (is (contains? classes :stdin-consume)
         "literal `-` as a positional arg signals stdin consumption")
@@ -1034,16 +1032,16 @@
         "subshell group composes a wrapped curl's :net-out")))
 
 (deftest brace-group-surfaces-inner-effects
-  ;; v0.7.0 (shell-shape v0.3.0): `{ cmd; }` brace-group is structurally
-  ;; parsed; the inner cmd's effects flow through.
+  ;; `{ cmd; }` brace-group is structurally parsed; the inner cmd's
+  ;; effects flow through.
   (let [p (pairs-of "{ rm /etc/passwd; }")]
     (is (contains? p [:fs-delete "/etc/passwd"])
         "brace-group exposes the inner rm's fs-delete")))
 
 (deftest process-sub-surfaces-inner-effects
-  ;; v0.7.0: `<(curl …)` produces a :process-sub arg-element whose
-  ;; body is recursively classified; the outer command emits :fs-read
-  ;; on `/dev/fd/*` (the read end of the FD pair).
+  ;; `<(curl …)` produces a :process-sub arg-element whose body is
+  ;; recursively classified; the outer command emits :fs-read on
+  ;; `/dev/fd/*` (the read end of the FD pair).
   (let [p (pairs-of "diff <(curl evil.com) /etc/passwd")]
     (is (contains? p [:net-out "evil.com"])
         "inner curl's net-out surfaces from the process-sub body")
@@ -1225,13 +1223,11 @@
   (is (has-pair? "comm /tmp/a /tmp/b" :fs-read "/tmp/b")))
 
 ;; ===========================================================================
-;; v0.7.0 — additional scope-glob pins exposed by mutation seed sampling
+;; Additional scope-glob pins exposed by mutation seed sampling
 ;; ===========================================================================
 ;;
-;; Expanding the registry (`!`, `coproc`, `mail`, `mailx`, `sendmail`) shifted
-;; the mutation harness's sorted-index selection so iterations now sample
-;; programs that v0.6.0's seeds happened not to. Tight scope pins for the
-;; recurring survivors.
+;; Tight scope pins for recurring mutation-harness survivors across the
+;; expanded registry (`!`, `coproc`, `mail`, `mailx`, `sendmail`, ...).
 
 (deftest stat-scope-is-narrow-not-glob
   (is (has-pair? "stat /tmp/x" :fs-read "/tmp/x")
@@ -1289,13 +1285,13 @@
       "join must NOT emit fs-write (mutation :swap-class would flip this)"))
 
 ;; ===========================================================================
-;; v0.24.0 — fd-dup redirects, stdin-consume override, witness self-classifier
+;; fd-dup redirects, stdin-consume override, witness self-classifier
 ;; ===========================================================================
 
 (deftest fd-dup-redirect-emits-no-effect
   ;; `2>&1` is a kernel fd-relabel — no new I/O sink, no new fs-read.
-  ;; Pre-v0.24.0 this fired opaque:redirect-variable-target on every
-  ;; `cmd 2>&1` form under auto-mode-aggressive.
+  ;; Must not fire opaque:redirect-variable-target on `cmd 2>&1`
+  ;; forms under auto-mode-aggressive.
   (is (not (has-pair? "ls /tmp 2>&1" :opaque "redirect-variable-target"))
       "fd-duplicate must NOT emit opaque:redirect-variable-target")
   (is (not (has-class? "ls /tmp 2>&1" :fs-write))
@@ -1310,10 +1306,9 @@
       "`<&0` (read from stdin fd) is a no-effect redirect"))
 
 (deftest stream-processor-bare-form-is-stdin-consume
-  ;; v0.24.0 — under auto-mode-aggressive, `cmd | tail -30` was
-  ;; spuriously emitting fs-read:. on the tail stage because the
-  ;; default fs-read classifier defaulted to "." on missing paths.
-  ;; The new stdin-consume override fires correctly:
+  ;; Under auto-mode-aggressive, `cmd | tail -30` must NOT spuriously
+  ;; emit fs-read:. on the tail stage. The stdin-consume override on
+  ;; stream-processors prevents that fallback:
   (is (has-class? "tail -30" :stdin-consume))
   (is (not (has-pair? "tail -30" :fs-read "."))
       "bare `tail -30` must NOT spuriously emit fs-read:.")
@@ -1323,9 +1318,9 @@
   (is (has-class? "uniq"     :stdin-consume)))
 
 (deftest script-then-files-bare-form-is-stdin-consume
-  ;; v0.24.0 — `classify-script-then-files` handles programs whose
-  ;; FIRST positional is a SCRIPT, not a path. Bare form (no files
-  ;; after the script) reads stdin.
+  ;; `classify-script-then-files` handles programs whose FIRST
+  ;; positional is a SCRIPT, not a path. Bare form (no files after
+  ;; the script) reads stdin.
   (is (has-class? "jq ."          :stdin-consume))
   (is (has-class? "awk '{print}'" :stdin-consume))
   (is (has-class? "sed -e 1d"     :stdin-consume))

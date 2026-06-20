@@ -1,5 +1,5 @@
 (ns shell-classify.argv-shape
-  "v0.10.0 (P2) — predicate-set DSL over normalized argv.
+  "(P2) — predicate-set DSL over normalized argv.
 
   Position-invariance is the load-bearing property: a policy author
   who wants to deny `git push --force` should not care whether the
@@ -73,11 +73,8 @@
 
   ## Why predicate-set, not position-sequence
 
-  Section 2 of the working note at
-  [.plans/read-internal-seed-md-as-a-witty-allen.md](../../.plans/read-internal-seed-md-as-a-witty-allen.md)
-  walks the first-principles argument: muschel's
-  `[\"git\" \"push\" \"--force\" :**]` shape is position-sensitive,
-  and a policy author trying to deny --force has to enumerate every
+  A position-sensitive shape like `[\"git\" \"push\" \"--force\" :**]`
+  forces a policy author trying to deny `--force` to enumerate every
   permutation. The predicate-set form composes (intersection of
   `:requires`, union across grants for `:any-of`) and is
   position-invariant by construction.")

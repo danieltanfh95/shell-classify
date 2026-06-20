@@ -1,5 +1,5 @@
 (ns shell-classify.classifiers.ruby-test
-  "Ruby stdlib effect classifier (P5.3 / v0.15.0)."
+  "Ruby stdlib effect classifier (P5.3)."
   (:require [clojure.test :refer [deftest is testing]]
             [shell-classify.classify :as cls]
             [shell-shape.dialect.ruby :as ruby]))

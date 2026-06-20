@@ -307,4 +307,4 @@ this lib's surface and layers the agent-graph effect classes + the
 
 694 tests, 1414 assertions, 0 failures.
 
-[0.1.0]: https://github.com/danieltanfh95/shell-shape-classify/releases/tag/v0.1.0
+[0.1.0]: https://github.com/danieltanfh95/shell-classify/releases/tag/v0.1.0

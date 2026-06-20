@@ -3,8 +3,8 @@
   dialect — Plan §7 Move 5 / P5.2.
 
   Consumes shell-shape's `:script :dialect :node` tree (produced by
-  shell-shape.dialect.node v0.5.0+) and emits effect-records with
-  coordinate axes populated.
+  shell-shape.dialect.node) and emits effect-records with coordinate
+  axes populated.
 
   ---
 

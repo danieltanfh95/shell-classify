@@ -1,5 +1,5 @@
 (ns shell-classify.overlay-test
-  "v0.28.0 — operator-facing classifier overlay tests.
+  "Operator-facing classifier overlay tests.
 
    Covers:
      - happy-path instantiation for every :kind in `valid-kinds`
@@ -67,10 +67,10 @@
         (is (= :test (:rule entry)))))))
 
 (deftest parse-overlay-classifies-correctly-by-kind
-  ;; v0.2.0 — classifiers receive a normalized-call (see
-  ;; `shell-classify.call`). Construct via `from-shell-shape-
-  ;; command` (the test exercises the classifier function directly,
-  ;; not the full classify-tree pipeline which would normalize for us).
+  ;; Classifiers receive a normalized-call (see `shell-classify.call`).
+  ;; Construct via `from-shell-shape-command` (the test exercises the
+  ;; classifier function directly, not the full classify-tree pipeline
+  ;; which would normalize for us).
   (testing ":pure classifier emits stdout-emit"
     (let [data {"sleep" (spec {:kind :pure :rule :sleep})}
           result (overlay/parse-overlay data)
@@ -157,9 +157,9 @@
 (deftest parse-overlay-reports-overrides-vs-added
   (testing "an entry for an existing program reports as :override; a new one as :added"
     ;; `my-custom-tool` is a synthetic name with no possibility of
-    ;; collision against the lib's growing default-registry — v0.1.0
-    ;; added bb/sleep/etc., and using a real program here would force
-    ;; this test to chase the registry's evolution.
+    ;; collision against the lib's growing default-registry. Using a
+    ;; real program here would force this test to chase the registry's
+    ;; evolution.
     (let [data {"ls"             (spec {:kind :pure :rule :weakened-ls})
                 "my-custom-tool" (spec {:kind :shell-interpret
                                         :rule :my-custom-tool

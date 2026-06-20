@@ -2,13 +2,13 @@
   "Parser-neutral normalized-call shape consumed by the classifier
    registry.
 
-   v0.2.0 decomplection — separates per-program effect classification
-   from any specific parse-tree shape so non-shell-shape parsers
-   (e.g. muschel) can run ssc's classifier taxonomy by translating
-   their command shape into a normalized-call. shell-shape stays the
-   reference parser; ssc's tree walker (classify.clj) is still coupled
-   to shell-shape's :script/:pipeline/:command/:group shapes — what
-   moves to a neutral shape is the per-program registry dispatch.
+   Separates per-program effect classification from any specific
+   parse-tree shape so non-shell-shape parsers (e.g. muschel) can run
+   ssc's classifier taxonomy by translating their command shape into
+   a normalized-call. shell-shape is the reference parser; ssc's tree
+   walker (classify.clj) is coupled to shell-shape's
+   :script/:pipeline/:command/:group shapes — the per-program
+   registry dispatch is parser-neutral.
 
    ## Normalized-call shape
 
@@ -255,7 +255,7 @@
      {:kind :command
       :program <str-or-token>        ; binding-resolved upstream
       :args    [<token>]
-      :assigns [{:name :value}]      ; (post-shell-shape v0.7)
+      :assigns [{:name :value}]
       :redirects       [<rd>]
       :program-sources [<ps>]
       :invokes         [<inv>]}      ; not on normalized-call —

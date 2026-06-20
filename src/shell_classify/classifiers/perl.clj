@@ -3,15 +3,15 @@
   dialect — Plan §7 Move 5 / P5.4.
 
   Consumes shell-shape's `:script :dialect :perl` tree (produced by
-  shell-shape.dialect.perl v0.7.0+) and emits effect-records with
-  coordinate axes populated.
+  shell-shape.dialect.perl) and emits effect-records with coordinate
+  axes populated.
 
   ## Module surface
 
   Perl callable resolution is by fully-qualified package path
   (`File::Path::rmtree`). `use Foo::Bar qw(name1 name2);` makes
   `name1` callable bare, but in practice Perl scripts often invoke
-  with the fully-qualified path. v0.16.0 supports both via the
+  with the fully-qualified path. Both are supported via the
   use-imports binding table.
 
   ## Cross-dialect descent
@@ -24,8 +24,8 @@
   - `` `cmd` `` and `qx{cmd}` — surface as :pl-call with callable
     `[\":backtick\"]` whose first arg is the literal body string,
     classified through the shell-string descent path.
-  - `open(\\$fh, '|-', 'cmd')` — pipe-open form. Not classified at
-    v0.16.0 — falls to :opaque :unknown-effect-for-program."
+  - `open(\\$fh, '|-', 'cmd')` — pipe-open form. Not yet classified
+    — falls to :opaque :unknown-effect-for-program."
   (:require [clojure.string :as str]
             [shell-shape.core :as ss]))
 
@@ -178,7 +178,7 @@
     open(FH, 'cmd |')            → pipe-from-cmd (opaque, deferred)
     open(FH, '| cmd')            → pipe-to-cmd (opaque, deferred)
     open(FH, '/path')            → fs-read (2-arg form, default read)
-  v0.16.0 handles 3-arg-with-mode-literal and 2-arg path forms.
+  Handles 3-arg-with-mode-literal and 2-arg path forms.
   Pipe-open forms are :opaque :unknown-effect-for-program."
   []
   (fn [_ctx callable {:keys [args]}]

@@ -3,9 +3,9 @@
   dialect — Plan §7 Move 5 / P5.1.
 
   Consumes shell-shape's `:script :dialect :python` tree (produced by
-  shell-shape.dialect.python v0.2.0+) and emits effect-records with
-  coordinate axes (`:module`, `:function`, `:program`) populated for
-  the policy surface to predicate on.
+  shell-shape.dialect.python) and emits effect-records with coordinate
+  axes (`:module`, `:function`, `:program`) populated for the policy
+  surface to predicate on.
 
   ---
 

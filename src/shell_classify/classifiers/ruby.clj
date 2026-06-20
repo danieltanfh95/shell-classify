@@ -3,8 +3,8 @@
   dialect — Plan §7 Move 5 / P5.3.
 
   Consumes shell-shape's `:script :dialect :ruby` tree (produced by
-  shell-shape.dialect.ruby v0.6.0+) and emits effect-records with
-  coordinate axes populated.
+  shell-shape.dialect.ruby) and emits effect-records with coordinate
+  axes populated.
 
   Mirrors the Python / Node classifier structure: a `call-effects`
   registry maps dotted callable paths (receiver path + method name)

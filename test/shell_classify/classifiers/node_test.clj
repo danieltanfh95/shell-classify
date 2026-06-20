@@ -1,5 +1,5 @@
 (ns shell-classify.classifiers.node-test
-  "Node.js stdlib effect classifier (P5.2 / v0.14.0)."
+  "Node.js stdlib effect classifier (P5.2)."
   (:require [clojure.test :refer [deftest is testing]]
             [shell-classify.classify :as cls]
             [shell-shape.dialect.node :as node]))

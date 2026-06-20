@@ -1,15 +1,14 @@
 (ns shell-classify.overlay
   "Operator-facing program-classifier overlay.
 
-   v0.28.0 — operators can extend the program-classifier registry by
-   placing a `classifier-overlay.edn` file under
-   `$CONTINUITY_WITNESS_HOME` (typically
-   `~/.config/continuity-witness/classifier-overlay.edn`). The file is
-   pure data — a closed set of `:kind` discriminators dispatches each
-   operator-authored spec to one of effects.clj's vetted factory
-   functions. There is no `eval` and no Clojure-code load path; an
-   operator cannot smuggle arbitrary side-effecting code into the
-   witness JVM through this seam.
+   Operators can extend the program-classifier registry by placing a
+   `classifier-overlay.edn` file under `$CONTINUITY_WITNESS_HOME`
+   (typically `~/.config/continuity-witness/classifier-overlay.edn`).
+   The file is pure data — a closed set of `:kind` discriminators
+   dispatches each operator-authored spec to one of effects.clj's
+   vetted factory functions. There is no `eval` and no Clojure-code
+   load path; an operator cannot smuggle arbitrary side-effecting
+   code into the witness JVM through this seam.
 
    Lifecycle:
 

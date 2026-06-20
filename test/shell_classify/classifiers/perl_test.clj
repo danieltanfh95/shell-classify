@@ -1,5 +1,5 @@
 (ns shell-classify.classifiers.perl-test
-  "Perl stdlib effect classifier (P5.4 / v0.16.0)."
+  "Perl stdlib effect classifier (P5.4)."
   (:require [clojure.test :refer [deftest is testing]]
             [shell-classify.classify :as cls]
             [shell-shape.dialect.perl :as perl]))

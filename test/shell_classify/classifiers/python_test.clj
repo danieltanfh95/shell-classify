@@ -1,5 +1,5 @@
 (ns shell-classify.classifiers.python-test
-  "Per-language stdlib effect classifier for Python (P5.1 / v0.13.0).
+  "Per-language stdlib effect classifier for Python (P5.1).
 
   Tests verify the end-to-end pipeline from shell-shape's :script
   :dialect :python tree → witness's effect-records, with coordinate

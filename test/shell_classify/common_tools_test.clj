@@ -1,10 +1,10 @@
 (ns shell-classify.common-tools-test
-  "Classifier coverage for the common-tool entries added in v0.1.0
-   alongside the witness hoist: process tools (pkill/pgrep), filesystem
-   inventory (df/du/free/uptime/whereis), pure (sleep/yes), tee, gh,
-   and JVM launchers (bb/clojure/clj). Each test pins the
-   `[class scope]` pairs the substrate must emit so a future
-   classifier rewrite cannot silently downgrade these to opaque."
+  "Classifier coverage for common-tool entries: process tools
+   (pkill/pgrep), filesystem inventory (df/du/free/uptime/whereis),
+   pure (sleep/yes), tee, gh, and JVM launchers (bb/clojure/clj).
+   Each test pins the `[class scope]` pairs the substrate must emit
+   so a future classifier rewrite cannot silently downgrade these to
+   opaque."
   (:require
    [clojure.test :refer [deftest is testing]]
    [shell-classify.classify :as cls]

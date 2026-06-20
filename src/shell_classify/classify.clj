@@ -97,10 +97,10 @@
 (def ^:private fd-dup-ops
   "fd-duplicate redirects — `>&N`, `<&N`, `>&-`, `<&-`. The kernel
    relabels file descriptors; no new I/O sink, no new fs-read source.
-   shell-shape's tokenizer (v0.24.0+) recognizes these inline and
-   emits `:target {:kind :fd-ref}`. Classifying as no-effect removes
-   the spurious `opaque:redirect-variable-target` that used to fire
-   on every `cmd 2>&1` form."
+   shell-shape's tokenizer recognizes these inline and emits
+   `:target {:kind :fd-ref}`. Classifying as no-effect prevents
+   spurious `opaque:redirect-variable-target` from firing on every
+   `cmd 2>&1` form."
   #{:>& :<&})
 
 (defn- redirect-target-path
@@ -170,13 +170,13 @@
     []))
 
 (defn classify-redirect
-  "Effects contributed by a single redirect on `cmd`. v0.7.0: process-
-   sub redirect targets (`> >(grep)` / `< <(curl)`) propagate the inner
+  "Effects contributed by a single redirect on `cmd`. Process-sub
+   redirect targets (`> >(grep)` / `< <(curl)`) propagate the inner
    body's effects unconditionally + emit the appropriate fs-* on the
-   /dev/fd/* synth scope so the outer write/read is visible. v0.19.0
-   (P7b): `cmd > literal-path` where `cmd` is a passthrough producer
-   (echo / printf / cat <<HEREDOC) also classifies the payload under
-   the dialect derived from `literal-path`'s extension, emitting the
+   /dev/fd/* synth scope so the outer write/read is visible. (P7b):
+   `cmd > literal-path` where `cmd` is a passthrough producer (echo /
+   printf / cat <<HEREDOC) also classifies the payload under the
+   dialect derived from `literal-path`'s extension, emitting the
    content's effects with `:provenance :source :fs-write-content`."
   [ctx cmd rd]
   (let [op   (:op rd)
@@ -190,8 +190,6 @@
     (cond
       ;; fd-duplicate (`2>&1`, `<&0`, `>&-`, etc.). The kernel relabels
       ;; the fd; the workload's effects on the world are unchanged.
-      ;; v0.24.0 — closes the false-defer that fired on every
-      ;; `cmd 2>&1` form under auto-mode-aggressive.
       (contains? fd-dup-ops op)
       []
 
@@ -394,10 +392,10 @@
     []))
 
 (defn classify-arg-token
-  "Walk a single arg-element. v0.3.0 / v0.7.0: arg-elements may be
-   :token (parts walked for subshell substitutions) or :process-sub
-   (body recursively classified — outer :fs-read/:fs-write on
-   /dev/fd/* is emitted by the program classifier via arg-literals)."
+  "Walk a single arg-element. Arg-elements may be :token (parts
+   walked for subshell substitutions) or :process-sub (body
+   recursively classified — outer :fs-read/:fs-write on /dev/fd/* is
+   emitted by the program classifier via arg-literals)."
   [ctx arg]
   (case (:kind arg)
     :token
@@ -508,14 +506,14 @@
                               :current-cmd cmd
                               :bindings    effective-bnds)
         registry       (:registry ctx)
-        ;; v0.2.0 — translate the binding-resolved shell-shape :command
-        ;; into a parser-neutral normalized-call before invoking the
-        ;; per-program classifier registry. The walker stays shell-
-        ;; shape-coupled (it knows :script/:pipeline/:command/:group/
-        ;; :program-sources, etc.); only the per-program dispatch is
-        ;; parser-neutral, so non-shell-shape parsers (muschel) can
-        ;; reuse the registry by constructing their own normalized-
-        ;; calls and calling `eff/classify-call` directly.
+        ;; Translate the binding-resolved shell-shape :command into a
+        ;; parser-neutral normalized-call before invoking the per-program
+        ;; classifier registry. The walker stays shell-shape-coupled (it
+        ;; knows :script/:pipeline/:command/:group/:program-sources,
+        ;; etc.); only the per-program dispatch is parser-neutral, so
+        ;; non-shell-shape parsers (muschel) can reuse the registry by
+        ;; constructing their own normalized-calls and calling
+        ;; `eff/classify-call` directly.
         norm-call      (call/from-shell-shape-command cmd)
         own            (eff/classify-call registry norm-call ctx)
         redirs         (reduce (fn [acc rd] (into acc (classify-redirect ctx cmd rd)))
@@ -527,9 +525,9 @@
         psrcs          (reduce (fn [acc ps] (into acc (classify-program-source ctx ps)))
                                []
                                (:program-sources cmd))
-        ;; v0.24.3: under xargs, the wrapped command's positional paths
-        ;; come from stdin — the static argv is empty, but the invocation
-        ;; IS effectful. Set :stdin-fed-positionals? on the descent ctx so
+        ;; Under xargs, the wrapped command's positional paths come from
+        ;; stdin — the static argv is empty, but the invocation IS
+        ;; effectful. Set :stdin-fed-positionals? on the descent ctx so
         ;; the wrapped fs-* classifiers emit scope "?" instead of opaque
         ;; :no-target.
         inv-ctx        (cond-> ctx
@@ -546,7 +544,7 @@
                            (into invokes))]
     (mark-env-resolved all-effs env-used)))
 
-;; ---- Group (v0.7.0: subshell + brace-group as pipeline stages) ---------
+;; ---- Group (subshell + brace-group as pipeline stages) ----------------
 
 (defn classify-group*
   "Like classify-group but returns `[effects new-bindings]`. P7a:
@@ -720,8 +718,8 @@
    registry when the mutation harness has rebound
    `eff/*registry-override*`.
 
-   v0.7.0 also threads `:classify-tree` and `:ss-parse` callables so
-   the ssh / trap classifiers can recursively classify literal command
+   Also threads `:classify-tree` and `:ss-parse` callables so the
+   ssh / trap classifiers can recursively classify literal command
    bodies without creating a circular require with `effects.clj`.
 
    Thin wrapper over `classify-tree*` that drops the propagated

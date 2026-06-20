@@ -1,3 +1,6 @@
+.claude
+.plans
+.internal
 .nrepl-port
 .cpcache/
 .cljs_node_repl/

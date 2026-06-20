@@ -159,8 +159,7 @@
    Use for stream-processors whose unargumented form reads stdin
    (tail/head/cat/wc/sort/uniq/awk/sed/jq…) so a pipe stage like
    `cmd | tail -30` does not spuriously emit `fs-read:.` on every
-   call. Closes the v0.24.0 false-defer that fired under auto-mode-
-   aggressive whenever a pipe ended in one of these tools.
+   call.
 
    With explicit positional paths, behavior matches `classify-fs-read`.
 
@@ -394,9 +393,9 @@
    here — classify-invocation's `try-resolve-unresolved` produces the
    resolved-form effects from the same :unresolved entry.
 
-   `cmd` is a normalized-call (v0.2.0); bindings.clj's resolver still
-   reads shell-shape :command shape via `(:raw cmd)`. Adapters that
-   don't populate `:raw` (or emit no :unresolved invokes) get no-op
+   `cmd` is a normalized-call; bindings.clj's resolver still reads
+   shell-shape :command shape via `(:raw cmd)`. Adapters that don't
+   populate `:raw` (or emit no :unresolved invokes) get no-op
    bindings resolution — wrapper-classifier still emits the static
    :opaque per :unresolved entry."
   [cmd ctx]
@@ -518,17 +517,17 @@
         ;; export with no args is "list exported vars" (env-read).
         [(mk :env-read "?" rule cmd)]))))
 
-;; ---- v0.7.0 opacity reduction: ssh / trap / mail -----------------------
+;; ---- Opacity reduction: ssh / trap / mail -----------------------------
 ;;
 ;; The tool_input arriving at witness-exercise time is the LLM's literal
 ;; output string. The bytes inside `eval "rm /etc/passwd"`,
 ;; `ssh host "rm /etc/passwd"`, `trap "rm /tmp/x" INT`, and
 ;; `mail user@example.com` are all STATIC at classify time, even
 ;; though they look bash-runtime-dynamic from a semantic perspective.
-;; v0.7.0 reduces opacity on these classes by parsing the literal body
-;; and recursively classifying it under :bash. Scope prefixing
-;; (`ssh:<host>:` and `trap:`) lets policy authors discriminate remote
-;; / deferred execution from local / immediate execution.
+;; These classes parse the literal body and recursively classify it
+;; under :bash. Scope prefixing (`ssh:<host>:` and `trap:`) lets policy
+;; authors discriminate remote / deferred execution from local /
+;; immediate execution.
 
 (def ^:private ssh-opts-with-value
   "ssh option flags that consume the next argument as their value.
@@ -763,7 +762,7 @@
                      [(mk :shell-interpret "posix" rule cmd)
                       (mk :opaque "source-body" rule cmd)]))))))
 
-;; ---- find classifier (v0.8.0 P0) --------------------------------------
+;; ---- find classifier (P0) ---------------------------------------------
 ;;
 ;; find's argv shape is NOT GNU-getopt — it's `find [path...] [expression]`
 ;; where the expression mixes tests, actions, and operators. The generic
@@ -775,7 +774,7 @@
 ;;                             so a generic `right(:fs-read, "/tmp/**", _)`
 ;;                             grant authorizes a delete (loaded-gun bug).
 ;;
-;; v0.8.0 ships a find-specific classifier:
+;; The find-specific classifier:
 ;;   - positional paths are taken from the args BEFORE the first
 ;;     expression token (`-XYZ`, `(`, `)`, `!`, `,`); any literal value
 ;;     after a predicate flag is its argument, not a path.
@@ -841,7 +840,7 @@
           (into reads (mapv #(mk :fs-delete % :find-delete cmd) roots))
           reads)))))
 
-;; ---- Argv-shape-driven classifier (v0.10.0 P2) -------------------------
+;; ---- Argv-shape-driven classifier (P2) ---------------------------------
 ;;
 ;; Builds a classifier from a per-program shape registry. Each shape is a
 ;; map of:
@@ -937,9 +936,9 @@
    ;;   (b) Stream processors — bare form reads stdin (common pipe-tail
    ;;       shape: `cmd | tail -30`, `cmd | jq .`, `cmd | wc -l`).
    ;;       Use `classify-stdin-or-fs-read` so the bare form emits
-   ;;       `stdin-consume:stdin` instead of `fs-read:.`. v0.24.0 fix —
-   ;;       closes the false-defer that fired under auto-mode-aggressive
-   ;;       on every pipeline ending in one of these tools.
+   ;;       `stdin-consume:stdin` instead of `fs-read:.` (which would
+   ;;       cause a false-defer under auto-mode-aggressive on every
+   ;;       pipeline ending in one of these tools).
    ;; `find` is in this group because its leaf classifier is fs-read
    ;; over its path arg; the -exec body is composed in via :invokes
    ;; (shell-shape :find-exec strategy + classify-command's invoke
@@ -1006,9 +1005,9 @@
    ;; --- Script-then-files (awk / sed / jq) ---
    ;;
    ;; Programs whose FIRST positional is a script (filter expression /
-   ;; program body) rather than a file path. v0.24.0 fix — the older
-   ;; classify-fs-read / classify-stdin-or-fs-read would have treated
-   ;; `awk '{}'` and `jq .` as `fs-read:"{}"` / `fs-read:"."`. The new
+   ;; program body) rather than a file path. The generic
+   ;; classify-fs-read / classify-stdin-or-fs-read would treat
+   ;; `awk '{}'` and `jq .` as `fs-read:"{}"` / `fs-read:"."`.
    ;; classify-script-then-files walks args once, recognizes
    ;; script-supplying flags (`-e`, `-f`), and emits the right
    ;; fs-read/stdin-consume shape.
@@ -1050,8 +1049,8 @@
     ;; grep — PATTERN at first positional (not a path); files follow.
     ;; `-e PATTERN` / `-f PATTERNFILE` make the leading positional
     ;; implicit (no positional pattern needed). Without this, the
-    ;; classifier wrongly emitted `:fs-read PATTERN`, deferring every
-    ;; grep call under auto-mode-aggressive. v0.24.3 fix.
+    ;; classifier would wrongly emit `:fs-read PATTERN`, deferring
+    ;; every grep call under auto-mode-aggressive.
     "grep"
     {:doc      "grep — pattern at pos 1, paths follow; bare → stdin-consume"
      :classify (classify-script-then-files
@@ -1072,7 +1071,7 @@
      :stdin    :data
      :stdout   :data}}
 
-   ;; --- find (v0.8.0 P0 — predicate/action discrimination) ---
+   ;; --- find (P0 — predicate/action discrimination) ---
    {"find" {:doc      "find — :fs-read on each starting path; :fs-delete on each
                        starting path when expression contains `-delete`. -exec/
                        -execdir/-ok handled by shell-shape :find-exec strategy
@@ -1085,11 +1084,11 @@
    ;; --- Pure / env-read-only ---
    ;; basename/dirname are pure string ops — they don't touch the
    ;; filesystem; their argv is a path-shaped *literal*, not a path
-   ;; read. v0.24.3 fix: previously in Group (a), wrongly emitting
-   ;; fs-read on every call.
+   ;; read. Group (a)'s classify-fs-read would wrongly emit fs-read
+   ;; on every call.
    ;;
    ;; which scans $PATH (env-read) for the named command; it does not
-   ;; fs-read the command-name literal. v0.24.3 fix.
+   ;; fs-read the command-name literal.
    (into {}
          (for [[prog rule]
                [["echo"     :echo]
@@ -1149,9 +1148,9 @@
                :classify (classify-fs-write :touch)
                :stdin :none :stdout :none}
     ;; chmod / chown — first positional is MODE / OWNER:GROUP spec,
-    ;; NOT a path. Remaining positionals are paths. v0.24.3 fix —
-    ;; previously emitted fs-write on the spec literal (e.g.
-    ;; `fs-write:644`), polluting effect sets. Reuses
+    ;; NOT a path. Remaining positionals are paths. A naive
+    ;; classify-fs-write would emit fs-write on the spec literal
+    ;; (e.g. `fs-write:644`), polluting effect sets. Reuses
     ;; classify-script-then-files with file-class :fs-write.
     "chmod"   {:doc "chmod — MODE at pos 1, fs-write on paths"
                :classify (classify-script-then-files
@@ -1195,7 +1194,7 @@
                :classify (wrapper-classifier nil)
                :stdin :data :stdout :data :wraps? true}
 
-    ;; --- v0.7.0 ---
+    ;; --- Exit-status / coprocess wrappers ---
     "!"       {:doc "! cmd — negates exit status of wrapped command;
                           transparent wrapper, no own effects."
                :classify (wrapper-classifier nil)
@@ -1207,7 +1206,7 @@
                :classify (wrapper-classifier nil)
                :stdin :data :stdout :data :wraps? true}
 
-    ;; --- T16: additional process-wrapper utilities (v0.6.0) ---
+    ;; --- T16: additional process-wrapper utilities ---
     ;; All delegate to :invokes; shell-shape's :positional-after-opts
     ;; strategy + :skip-positionals (for timeout/chrt/flock) populates
     ;; :invokes with the wrapped command.
@@ -1254,7 +1253,7 @@
     "typeset" {:doc "typeset — bash alias for declare"
                :classify (export-or-declare-classifier :typeset)
                :stdin :none :stdout :none}
-    "trap"    {:doc "trap 'CMD' SIG — v0.7.0 recursively classifies the
+    "trap"    {:doc "trap 'CMD' SIG — recursively classifies the
                           literal CMD body and prefixes each scope with
                           `trap:` so policy authors discriminate
                           command-may-fire-at-signal from command-runs-now.
@@ -1281,10 +1280,10 @@
     "fish"    {:doc "fish — friendly interactive shell"
                :classify (interp-interpret-classifier :fish :fish-interp)
                :stdin :shell-source :stdout :data :reads-stdin? true}
-    "python"  {:doc "python — interpreter; body opaque to v0.5.0"
+    "python"  {:doc "python — interpreter; body opaque at the program level"
                :classify (interp-interpret-classifier :python :python-interp)
                :stdin :interp-source :stdout :data :reads-stdin? true}
-    "python3" {:doc "python3 — interpreter; body opaque to v0.5.0"
+    "python3" {:doc "python3 — interpreter; body opaque at the program level"
                :classify (interp-interpret-classifier :python :python3-interp)
                :stdin :interp-source :stdout :data :reads-stdin? true}
     "node"    {:doc "node — JavaScript runtime; body opaque"
@@ -1308,7 +1307,7 @@
                                           :provenance {:rule :wget
                                                        :program "wget"}}])))
                :stdin :data :stdout :data}
-    "ssh"     {:doc "ssh — remote shell; v0.7.0 recursively classifies the
+    "ssh"     {:doc "ssh — remote shell; recursively classifies the
                         remote command body when literal, prefixing each
                         emitted scope with `ssh:<host>:` so local grants
                         don't authorize remote effects."
@@ -1344,7 +1343,7 @@
                                (empty? targets) [(opaque :no-target cmd)]
                                :else (mapv #(mk :net-out % :netcat cmd) targets))))
                :stdin :data :stdout :data}
-    "mail"    {:doc "mail RECIPIENT [-s SUBJECT] — v0.7.0 classifies the
+    "mail"    {:doc "mail RECIPIENT [-s SUBJECT] — classifies the
                           literal recipient(s) as :net-out scope=address."
                :classify mail-classifier
                :stdin :data :stdout :none}
@@ -1355,11 +1354,12 @@
                 :classify mail-classifier
                 :stdin :data :stdout :none}}
 
-   ;; --- v0.8.0 P0: baseline :proc-spawn for common LLM-emitted programs ---
-   ;; Pre-v0.8.0 these fell to :opaque "unclassified-program:<x>", forcing
-   ;; the loaded-gun right(:opaque, "**", _) grant. Baseline :proc-spawn
-   ;; moves them off opaque; per-subcommand discrimination (e.g. git push
-   ;; --force vs git status) lands in P2's argv-shape DSL.
+   ;; --- P0: baseline :proc-spawn for common LLM-emitted programs ---
+   ;; Without a baseline these fall to :opaque
+   ;; "unclassified-program:<x>", which forces the loaded-gun
+   ;; right(:opaque, "**", _) grant. Baseline :proc-spawn moves them
+   ;; off opaque; per-subcommand discrimination (e.g. git push
+   ;; --force vs git status) lives in P2's argv-shape DSL.
    {"git"    {:doc      "git — VCS; argv-shape per-subcommand discrimination
                           via getopt-normalized predicate-set DSL."
               :classify
@@ -1545,7 +1545,7 @@
 (def ^:dynamic *registry-override*
   "Dynamic-var seam used by two consumers:
 
-   - **Operator overlay (v0.28+)**: at daemon startup,
+   - **Operator overlay**: at daemon startup,
      `shell-classify.overlay/install!` does
      `(alter-var-root #'*registry-override* (constantly merged))`.
      This sets the ROOT binding so every thread sees the overlay-merged
