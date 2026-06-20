@@ -31,18 +31,18 @@ covers what a shell program can do *intrinsically* — what
 Agent-graph effects (`:mcp-call`, `:skill-invoke`, …) are added
 at the consumer layer; this lib stays scoped to shell programs.
 
-## Why split this out from continuity-witness
+## Relationship to continuity-witness
 
-shell-classify is the classifier registry, hoisted out of
-[continuity-witness](../continuity-witness) so non-witness
-consumers (e.g. [muschel](../muschel)) can reuse it without
+shell-classify is the parser-neutral classifier registry. It's
+used by [continuity-witness](../continuity-witness) and reusable
+by non-witness consumers (e.g. [muschel](../muschel)) without
 pulling biscuit-java + the witness daemon.
 
-The witness keeps a thin shim at `continuity-witness.effects` that
-re-exports this lib's surface and layers two witness-specific
-additions: the agent-graph effect classes and the
-`continuity-witness` self-classifier that closes the v0.24.0
-self-mint hole.
+The witness keeps a thin shim at `continuity-witness.effects`
+that re-exports this lib's surface and layers two witness-
+specific additions: the agent-graph effect classes and the
+`continuity-witness` self-classifier (closes the self-mint hole
+on the witness's own CLI).
 
 ## Surface
 
@@ -75,23 +75,7 @@ self-mint hole.
 
 ## Status
 
-v0.2.1 — `xargs` own-effect `[:opaque "xargs-stdin-fed-argv"]`
-closes the under-approximation where xargs's stdin-fed argv
-cleared inner-family gates (e.g. `:fs-delete:**`) despite the
-operands being stdin-determined. The inner-command family signal
-still flows; the new own-effect is additional, not replacing.
-Standard policy templates don't grant `opaque:xargs-stdin-fed-argv`,
-so xargs invocations now defer by default.
-
-v0.2.0 — registry decomplected from any specific parse-tree shape.
-Consumes a parser-neutral *normalized-call*
-(`shell-classify.call`), so non-shell-shape parsers (e.g.
-muschel's bash AST) reuse the taxonomy by translating their
-command shape and calling `effects/classify-call`. The tree
-walker (`classify.clj`) remains shell-shape-coupled by design.
-Breaking for consumers that registered custom classifiers via
-`active-registry` swap (mechanical migration; see
-`CHANGELOG.md [0.2.0]`).
+v0.2.1. See [`CHANGELOG.md`](CHANGELOG.md) for per-version detail.
 
 The classifier substrate. The taxonomy is closed (the
 `:effect-classes` set). Adding a new program follows one of:
