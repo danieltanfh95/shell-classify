@@ -4,6 +4,52 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-06-27
+
+**Internal value-oriented cleanup from a Rich Hickey-lens review
+(Simple Made Easy). No public API breaks. Effect-taxonomy
+hygiene + capability-injection consistency.**
+
+Three small structural fixes surfaced by an automated
+decomplection review and verified against the actual code before
+applying. The first is a correctness fix to the published effect
+taxonomy; the others narrow internal seams.
+
+### Fixed
+
+- **`classifiers/ruby` `Process.kill` and `classifiers/perl` `kill`
+  now emit `:proc-signal`** (the declared, documented effect
+  class), not the undeclared `:proc-mutate` symbol. Out-of-tree
+  policy templates that key on `:proc-mutate` were always
+  matching against an emission that was never declared in
+  `effect-classes`; downstream consumers using the declared
+  taxonomy (e.g. `continuity-witness`'s `:proc-signal` doctor
+  scope) get correct attribution without changes.
+
+### Changed
+
+- **`classify/{classify-group*,classify-pipeline*,classify-tree*}`
+  are now `defn-`** (private) — these are internal recursion
+  helpers, never the public entry. The public `classify-tree`
+  entrypoint is unchanged; downstream consumers (witness's
+  `normalize/classify-tree` call sites) use the public form
+  and are not affected.
+- **`classifiers/{python,node,ruby,perl}` `effects-from-shell-string`
+  now honors `ctx`'s `:ss-parse` capability** with a fallback to
+  the hardcoded `ss/parse`. Brings the four shell-string-emitting
+  classifiers into line with the rest of the codebase, where the
+  parser is an injected capability rather than a hard dependency.
+  Lets a consumer running an instrumented shell-shape parse-call
+  observe the inner shell-string parses without monkey-patching.
+
+### Tests
+
+Full suite 696 / 1420 assertions / 0 failures. The pre-existing
+public-API contract is unchanged — the four `effects-from-shell-string`
+functions still default to `ss/parse` when no override is supplied,
+and the `:proc-signal` effect was already in the declared taxonomy
+that downstream policies consume.
+
 ## [0.2.1] — 2026-06-19
 
 **Fix: `xargs` own-effect closes the stdin-fed-argv hole.** The

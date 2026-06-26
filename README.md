@@ -75,7 +75,7 @@ on the witness's own CLI).
 
 ## Status
 
-v0.2.1. See [`CHANGELOG.md`](CHANGELOG.md) for per-version detail.
+v0.2.2. See [`CHANGELOG.md`](CHANGELOG.md) for per-version detail.
 
 The classifier substrate. The taxonomy is closed (the
 `:effect-classes` set). Adding a new program follows one of:
