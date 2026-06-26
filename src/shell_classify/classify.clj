@@ -546,7 +546,7 @@
 
 ;; ---- Group (subshell + brace-group as pipeline stages) ----------------
 
-(defn classify-group*
+(defn- classify-group*
   "Like classify-group but returns `[effects new-bindings]`. P7a:
    `:brace` groups run in the current shell — assignments inside
    propagate to subsequent siblings. `:subshell` groups discard
@@ -617,7 +617,7 @@
   [pl]
   (= 1 (count (:stages pl))))
 
-(defn classify-pipeline*
+(defn- classify-pipeline*
   "Like classify-pipeline but returns `[effects new-bindings]`. P7a:
    threads same-string binding-tables forward through chain-tail
    (sequence) and across :script :nodes. Pipe stages within a multi-
@@ -677,7 +677,7 @@
 
 ;; ---- Script root -------------------------------------------------------
 
-(defn classify-tree*
+(defn- classify-tree*
   "Like classify-tree but returns `[effects new-bindings]`. Used by
    `classify-group*` to propagate same-string bindings out of a brace
    group's body. Public consumers should use `classify-tree`."

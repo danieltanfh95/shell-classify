@@ -101,7 +101,8 @@
   (let [classify-tree (or (:classify-tree ctx)
                           (throw (ex-info "ctx :classify-tree missing"
                                           {:status :wiring-error})))
-        tree     (try (ss/parse shell-str) (catch Throwable _ nil))
+        ss-parse (or (:ss-parse ctx) ss/parse)
+        tree     (try (ss-parse shell-str) (catch Throwable _ nil))
         module   (module-of callable)
         function (function-of callable)]
     (if (nil? tree)
